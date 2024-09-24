@@ -13,7 +13,7 @@ export class CompilerVisitor extends BaseVisitor {
     /**
      * @type {BaseVisitor['visitExpresionStmt']}
      */
-    visitExpresionStmt(node) {
+    visitOpSentence(node) {
         node.exp.accept(this);
         this.code.popObject(r.T0);
     }
@@ -22,15 +22,15 @@ export class CompilerVisitor extends BaseVisitor {
      * @type {BaseVisitor['visitPrimitivo']}
      */
     visitLiteral(node) {
-        this.code.comment(`Primitivo: ${node.valor}`);
-        this.code.pushContant({ type: node.tipo, valor: node.valor });
-        this.code.comment(`Fin Primitivo: ${node.valor}`);
+        this.code.comment(`Primitivo: ${node.value}`);
+        this.code.pushContant(node);
+        this.code.comment(`Fin Primitivo: ${node.value}`);
     }
 
     /**
      * @type {BaseVisitor['visitOperacionBinaria']}
      */
-    visitOperacionBinaria(node) {
+    visitArithmetic(node) {
         this.code.comment(`Operacion: ${node.op}`);
         node.izq.accept(this);
         node.der.accept(this);
@@ -61,7 +61,7 @@ export class CompilerVisitor extends BaseVisitor {
     /**
      * @type {BaseVisitor['visitOperacionUnaria']}
      */
-    visitOperacionUnaria(node) {
+    visitUnario(node) {
         node.exp.accept(this);
 
         this.code.popObject(r.T0);
@@ -80,7 +80,7 @@ export class CompilerVisitor extends BaseVisitor {
     /**
      * @type {BaseVisitor['visitAgrupacion']}
      */
-    visitAgrupacion(node) {
+    visitGrouping(node) {
         return node.exp.accept(this);
     }
 
@@ -93,7 +93,7 @@ export class CompilerVisitor extends BaseVisitor {
         }
 
         for (let i = 0; i < node.exp.length; i++) {
-            const valor = node.exp[i].accept(this);
+            node.exp[i].accept(this);
             // hacer pop de la pila
             this.code.popObject(r.A0);
             tipoPrint[object.type]();

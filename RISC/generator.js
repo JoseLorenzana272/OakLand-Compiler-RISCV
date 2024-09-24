@@ -118,13 +118,13 @@ export class Generador {
 
         switch (object.type) {
             case 'int':
-                this.li(r.T0, object.valor);
+                this.li(r.T0, object.value);
                 this.push()
                 length = 4;
                 break;
 
             case 'string':
-                const stringArray = stringTo32BitsArray(object.valor).reverse();
+                const stringArray = stringTo32BitsArray(object.value).reverse();
 
                 stringArray.forEach((block32bits) => {
                     this.li(r.T0, block32bits);

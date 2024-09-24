@@ -29,7 +29,7 @@ require(['vs/editor/editor.main'], function () {
 
     // Crear el editor de Monaco con el tema Dracula
     const editor = monaco.editor.create(document.getElementById('editor'), {
-        value: `// Type your code here...`,
+        value: `System.out.println(5+5);`,
         language: 'javascript',
         theme: 'dracula',  // Aplicar el tema
         automaticLayout: true
