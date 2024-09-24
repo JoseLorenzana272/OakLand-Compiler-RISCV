@@ -22,9 +22,9 @@ export class CompilerVisitor extends BaseVisitor {
      * @type {BaseVisitor['visitPrimitivo']}
      */
     visitLiteral(node) {
-        this.code.comment(`Primitivo: ${node.value}`);
-        this.code.pushContant(node);
-        this.code.comment(`Fin Primitivo: ${node.value}`);
+        this.code.comment(`Primitivo: ${node.valor}`);
+        this.code.pushContant({ type: node.tipo, valor: node.valor });
+        this.code.comment(`Fin Primitivo: ${node.valor}`);
     }
 
     /**
@@ -32,11 +32,11 @@ export class CompilerVisitor extends BaseVisitor {
      */
     visitArithmetic(node) {
         this.code.comment(`Operacion: ${node.op}`);
-        node.izq.accept(this);
-        node.der.accept(this);
+        node.izq.accept(this); // izq |
+        node.der.accept(this); // izq | der
 
-        this.code.popObject(r.T0);
-        this.code.popObject(r.T1);
+        this.code.popObject(r.T0); // der
+        this.code.popObject(r.T1); // izq
 
         switch (node.op) {
             case '+':
@@ -44,7 +44,7 @@ export class CompilerVisitor extends BaseVisitor {
                 this.code.push(r.T0);
                 break;
             case '-':
-                this.code.sub(r.T0, r.T0, r.T1);
+                this.code.sub(r.T0, r.T1, r.T0);
                 this.code.push(r.T0);
                 break;
             case '*':
@@ -52,7 +52,12 @@ export class CompilerVisitor extends BaseVisitor {
                 this.code.push(r.T0);
                 break;
             case '/':
-                this.code.div(r.T0, r.T1, r.T2);
+                this.code.div(r.T0, r.T1, r.T0);
+                this.code.push(r.T0);
+                break;
+            case '%':
+                this.code.rem(r.T0, r.T1, r.T0);
+                this.code.push(r.T0);
                 break;
         }
         this.code.pushObject({ type: 'int', length: 4 });
@@ -95,12 +100,102 @@ export class CompilerVisitor extends BaseVisitor {
         for (let i = 0; i < node.exp.length; i++) {
             node.exp[i].accept(this);
             // hacer pop de la pila
-            this.code.popObject(r.A0);
+            const object = this.code.popObject(r.A0);
+            tipoPrint[object.type]();
+        }
+    }
+
+    /**
+     * @type {BaseVisitor['visitDeclaracionVariable']}
+     */
+    visitVariableDeclaration(node) {
+        this.code.comment(`Declaracion Variable: ${node.id}`);
+
+
+        node.exp.accept(this);
+        this.code.tagObject(node.id);
+
+        this.code.comment(`Fin declaracion Variable: ${node.id}`);
+    }
+
+    /**
+     * @type {BaseVisitor['visitAsignacion']}
+     */
+    visitVariableAssign(node) {
+        this.code.comment(`Asignacion Variable: ${node.id}`);
+
+        node.asgn.accept(this);
+        const valueObject = this.code.popObject(r.T0);
+        const [offset, variableObject] = this.code.getObject(node.id);
+
+        this.code.addi(r.T1, r.SP, offset);
+        this.code.sw(r.T0, r.T1);
+
+        variableObject.type = valueObject.type;
+
+        this.code.push(r.T0);
+        this.code.pushObject(valueObject);
+
+        this.code.comment(`Fin Asignacion Variable: ${node.id}`);
+    }
+
+
+    /**
+     * @type {BaseVisitor['visitReferenciaVariable']}
+     */
+    visitVariableValue(node) {
+        this.code.comment(`Referencia a variable ${node.id}: ${JSON.stringify(this.code.objectStack)}`);
+
+
+        const [offset, variableObject] = this.code.getObject(node.id);
+        this.code.addi(r.T0, r.SP, offset);
+        this.code.lw(r.T1, r.T0);
+        this.code.push(r.T1);
+        this.code.pushObject({ ...variableObject, id: undefined });
+
+        // this.code.comment(`Fin Referencia Variable: ${node.id}`);
+        this.code.comment(`Fin referencia de variable ${node.id}: ${JSON.stringify(this.code.objectStack)}`);
+    }
+
+
+    /**
+     * @type {BaseVisitor['visitBloque']}
+     */
+    visitBlock(node) {
+        this.code.comment('Inicio de bloque');
+
+        this.code.newScope();
+
+        node.dcls.forEach(d => d.accept(this));
+
+        this.code.comment('Reduciendo la pila');
+        const bytesToRemove = this.code.endScope();
+
+        if (bytesToRemove > 0) {
+            this.code.addi(r.SP, r.SP, bytesToRemove);
+        }
+
+        this.code.comment('Fin de bloque');
+    }
+
+
+}
+/*
+visitPrint(node) {
+        this.code.comment('Print');
+
+        const tipoPrint = {
+            'int': () => this.code.printInt(),
+            'string': () => this.code.printString()
+        }
+
+        for (let i = 0; i < node.exp.length; i++) {
+            node.exp[i].accept(this);
+            // hacer pop de la pila
+            const object = this.code.popObject(r.A0);
             tipoPrint[object.type]();
         }
 
 
         
-    }
-
-}
+    } */

@@ -25,6 +25,8 @@ export class Generador {
     constructor() {
         this.instrucciones = []
         this.objectStack = []
+        this.depth = 0
+
     }
 
     add(rd, rs1, rs2) {
@@ -62,6 +64,10 @@ export class Generador {
     push(rd = r.T0) {
         this.addi(r.SP, r.SP, -4) // 4 bytes = 32 bits
         this.sw(rd, r.SP)
+    }
+
+    rem(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('rem', rd, rs1, rs2))
     }
 
     pop(rd = r.T0) {
@@ -124,21 +130,27 @@ export class Generador {
                 break;
 
             case 'string':
-                const stringArray = stringTo32BitsArray(object.value).reverse();
+                const stringArray = stringTo32BitsArray(object.value);
+
+                this.comment(`Pushing string ${object.value}`);
+                this.addi(r.T0, r.HP, 4);
+                this.push(r.T0);
 
                 stringArray.forEach((block32bits) => {
                     this.li(r.T0, block32bits);
-                    this.push(r.T0);
+                    // this.push(r.T0);
+                    this.addi(r.HP, r.HP, 4);
+                    this.sw(r.T0, r.HP);
                 });
 
-                length = stringArray.length * 4;
+                length = 4;
                 break;
 
             default:
                 break;
         }
 
-        this.pushObject({ type: object.type, length });
+        this.pushObject({ type: object.type, length, depth: this.depth });
     }
 
     pushObject(object) {
@@ -155,8 +167,8 @@ export class Generador {
                 break;
 
             case 'string':
-                this.addi(rd, r.SP, 0);
-                this.addi(r.SP, r.SP, object.length);
+                this.pop(rd);
+                break;
             default:
                 break;
         }
@@ -164,10 +176,58 @@ export class Generador {
         return object;
     }
 
+    /*
+     FUNCIONES PARA ENTORNOS
+    */
+
+    newScope() {
+        this.depth++
+    }
+
+    endScope() {
+        let byteOffset = 0;
+
+        for (let i = this.objectStack.length - 1; i >= 0; i--) {
+            if (this.objectStack[i].depth === this.depth) {
+                byteOffset += this.objectStack[i].length;
+                this.objectStack.pop();
+            } else {
+                break;
+            }
+        }
+        this.depth--
+
+        return byteOffset;
+    }
+
+
+    tagObject(id) {
+        this.objectStack[this.objectStack.length - 1].id = id;
+    }
+
+    getObject(id) {
+        let byteOffset = 0;
+        for (let i = this.objectStack.length - 1; i >= 0; i--) {
+            if (this.objectStack[i].id === id) {
+                return [byteOffset, this.objectStack[i]];
+            }
+            byteOffset += this.objectStack[i].length;
+        }
+
+        throw new Error(`Variable ${id} not found`);
+    }
+
     toString() {
         this.endProgram()
         return `
+
+.data
+        heap:
 .text
+
+# inicializando el heap pointer
+    la ${r.HP}, heap
+
 main:
     ${this.instrucciones.map(instruccion => `${instruccion}`).join('\n')}
 `
