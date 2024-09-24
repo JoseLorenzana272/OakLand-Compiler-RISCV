@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OakLand - Translator</title>
+    <base href=".">
+    <link rel="stylesheet" href="public/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs/loader.min.js"></script>
+</head>
+<body>
+<div class="header">
+    <h1><span class="symbol">&lt;</span>OakLand Translator<span class="symbol">/&gt;</span></h1>
+    <div class="buttons">
+        <button class="header-btn" id="run"><i class="fas fa-play"></i> Run</button>
+        <button class="header-btn" id="reports"><i class="fas fa-stop"></i> Reports</button>
+        <button class="header-btn" id="clear"><i class="fas fa-trash-alt"></i> Clear</button>
+        <button class="header-btn" id="open-file"><i class="fas fa-folder-open"></i> Open File</button>
+    </div>
+</div>
+<div class="container">
+    <div class="tabs">
+        <!-- Tabs -->
+    </div>
+    <div class="content-area">
+        <div class="box" id="editor-container">
+            <h2><span class="symbol">&lt;</span>Editor<span class="symbol">/&gt;</span></h2>
+            <div id="editor"></div> <!-- Monaco editor goes here -->
+        </div>
+        <div class="box" id="console">
+            <h2><span class="symbol">&lt;</span>Console<span class="symbol">/&gt;</span></h2>
+            <div class="console-output" id="salida">
+                <!-- Console output will appear here -->
+                <p class="default-message">You will see your results here...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="index.js"></script>
+</body>
+</html>
