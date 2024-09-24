@@ -21,7 +21,7 @@ export class CompilerVisitor extends BaseVisitor {
     /**
      * @type {BaseVisitor['visitPrimitivo']}
      */
-    visitPrimitivo(node) {
+    visitLiteral(node) {
         this.code.comment(`Primitivo: ${node.valor}`);
         this.code.pushContant({ type: node.tipo, valor: node.valor });
         this.code.comment(`Fin Primitivo: ${node.valor}`);
@@ -85,38 +85,22 @@ export class CompilerVisitor extends BaseVisitor {
     }
 
     visitPrint(node) {
-        let resultados = '';
         this.code.comment('Print');
-
-        const object = this.code.popObject(r.A0);
-
-        for (let i = 0; i < node.exp.length; i++) {
-            const valor = node.exp[i].accept(this);
-            resultados += this.formatValue(valor) + ' ';
-        }
-    
-        this.salida += resultados + '\n';
-        console.log(resultados);
 
         const tipoPrint = {
             'int': () => this.code.printInt(),
             'string': () => this.code.printString()
         }
 
-        tipoPrint[object.type]();
-    }
-
-    formatValue(valor) {
-        if (Array.isArray(valor)) {
-            // Si es un array (matriz), manejarlo recursivamente
-            return '[' + valor.map(v => this.formatValue(v)).join(', ') + ']';
-        } else if (valor && typeof valor === 'object' && 'value' in valor) {
-            // Si es un objeto con la propiedad 'value', acceder a ella
-            return this.formatValue(valor.value);
-        } else {
-            // En caso de ser un valor literal directo
-            return valor;
+        for (let i = 0; i < node.exp.length; i++) {
+            const valor = node.exp[i].accept(this);
+            // hacer pop de la pila
+            this.code.popObject(r.A0);
+            tipoPrint[object.type]();
         }
+
+
+        
     }
 
 }
