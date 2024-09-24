@@ -27,17 +27,17 @@ require(['vs/editor/editor.main'], function () {
         }
     });
 
-    // Crear el editor de Monaco con el tema Dracula
     const editor = monaco.editor.create(document.getElementById('editor'), {
         value: `System.out.println(5+5);`,
         language: 'javascript',
-        theme: 'dracula',  // Aplicar el tema
+        theme: 'dracula',
         automaticLayout: true
     });
 
     const runButton = document.querySelector('#run');
     const clearButton = document.querySelector('#clear');
     const openFileButton = document.querySelector('#open-file');
+    const copyConsoleButton = document.querySelector('#copy-console'); // Botón de copiar
     const consoleOutput = document.querySelector('#salida');
     const tabsContainer = document.querySelector('.tabs');
 
@@ -45,7 +45,7 @@ require(['vs/editor/editor.main'], function () {
     const tabs = {};
 
     runButton.addEventListener('click', () => {
-        consoleOutput.innerHTML = ''; 
+        consoleOutput.innerHTML = '';
 
         const codigoFuente = editor.getValue();
 
@@ -104,6 +104,17 @@ require(['vs/editor/editor.main'], function () {
         document.body.appendChild(input);
         input.click();
         document.body.removeChild(input);
+    });
+
+    copyConsoleButton.addEventListener('click', () => {
+        const outputContent = consoleOutput.innerText; // Obtener solo el texto sin etiquetas HTML
+        const tempTextArea = document.createElement('textarea');
+        tempTextArea.value = outputContent;
+        document.body.appendChild(tempTextArea);
+        tempTextArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(tempTextArea);
+        alert('Console output copied to clipboard!');
     });
 
     function switchToTab(tabId) {

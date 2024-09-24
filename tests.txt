@@ -1,0 +1,51 @@
+// Suma de enteros
+int a = 10;
+int b = 20;
+int c = a + b;
+System.out.println("The result of a + b is: ", c);
+
+// Restando enteros
+int d = 15;
+int e = 5;
+int f = d - e;
+System.out.println("The result of d - e is: ", f);
+
+// Concatenación de cadenas
+string firstName = "John";
+string lastName = "Doe";
+string fullName = firstName + " " + lastName;
+System.out.println("Full name: " + fullName);
+
+// Suma de enteros con impresión directa
+int num1 = 7;
+int num2 = 3;
+System.out.println("The sum of 7 and 3 is: ", (num1 + num2));
+
+// Actualizando el valor de una variable int
+int x = 8;
+x = x + 2;
+System.out.println("Updated x: ", x);
+
+// Operación con variables int
+int y = 12;
+int z = 4;
+int result = y / z;
+System.out.println("The result of y / z is: ", result);
+
+// Concatenando cadena con entero
+string age = "25";
+string message = "I am " + age + " years old.";
+System.out.println(message);
+
+// Imprimiendo el valor de una variable int
+int myNumber = 100;
+System.out.println("My number is: ", myNumber);
+
+// Asignando un valor calculado
+int result2 = 9 * 3 + 2;
+System.out.println("The result of 9 * 3 + 2 is: ", result2);
+
+// String con mensaje
+string greeting = "Hello";
+string name = "Jose";
+System.out.println(greeting, ", ", name, "!");

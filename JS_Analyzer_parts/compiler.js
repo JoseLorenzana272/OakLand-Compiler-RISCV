@@ -14,7 +14,7 @@ export class CompilerVisitor extends BaseVisitor {
      * @type {BaseVisitor['visitExpresionStmt']}
      */
     visitOpSentence(node) {
-        node.exp.accept(this);
+        node.o.accept(this);
         this.code.popObject(r.T0);
     }
 
@@ -23,7 +23,7 @@ export class CompilerVisitor extends BaseVisitor {
      */
     visitLiteral(node) {
         this.code.comment(`Primitivo: ${node.valor}`);
-        this.code.pushContant({ type: node.tipo, valor: node.valor });
+        this.code.pushContant(node);
         this.code.comment(`Fin Primitivo: ${node.valor}`);
     }
 
@@ -112,7 +112,7 @@ export class CompilerVisitor extends BaseVisitor {
         this.code.comment(`Declaracion Variable: ${node.id}`);
 
 
-        node.exp.accept(this);
+        node.value.accept(this);
         this.code.tagObject(node.id);
 
         this.code.comment(`Fin declaracion Variable: ${node.id}`);
@@ -124,7 +124,7 @@ export class CompilerVisitor extends BaseVisitor {
     visitVariableAssign(node) {
         this.code.comment(`Asignacion Variable: ${node.id}`);
 
-        node.asgn.accept(this);
+        node.assi.accept(this);
         const valueObject = this.code.popObject(r.T0);
         const [offset, variableObject] = this.code.getObject(node.id);
 
