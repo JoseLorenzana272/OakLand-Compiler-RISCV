@@ -49,6 +49,71 @@ export class Generador {
         this.instrucciones.push(new Instruction('addi', rd, rs1, inmediato))
     }
 
+    /* ---------------- Instrucciones Relacionales --------------------- */
+
+    slt(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('slt', rd, rs1, rs2))
+    }
+
+    slti(rd, rs1, inmediato) {
+        this.instrucciones.push(new Instruction('slti', rd, rs1, inmediato))
+    }
+
+    sltu(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('sltu', rd, rs1, rs2))
+    }
+
+    sltiu(rd, rs1, inmediato) {
+        this.instrucciones.push(new Instruction('sltiu', rd, rs1, inmediato))
+    }
+
+    seqz(rd, rs1) {
+        this.instrucciones.push(new Instruction('seqz', rd, rs1))
+    }
+
+    snez(rd, rs1) {
+        this.instrucciones.push(new Instruction('snez', rd, rs1))
+    }
+
+    sltz(rd, rs1) {
+        this.instrucciones.push(new Instruction('sltz', rd, rs1))
+    }
+
+    sgtz(rd, rs1) {
+        this.instrucciones.push(new Instruction('sgtz', rd, rs1))
+    }
+
+    /* ---------------- Instrucciones lógicas --------------------- */
+
+    and(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('and', rd, rs1, rs2))
+    }
+
+    or(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('or', rd, rs1, rs2))
+    }
+
+    xor(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('xor', rd, rs1, rs2))
+    }
+
+    andi(rd, rs1, inmediato) {
+        this.instrucciones.push(new Instruction('andi', rd, rs1, inmediato))
+    }
+
+    ori(rd, rs1, inmediato) {
+        this.instrucciones.push(new Instruction('ori', rd, rs1, inmediato))
+    }
+
+    xori(rd, rs1, inmediato) {
+        this.instrucciones.push(new Instruction('xori', rd, rs1, inmediato))
+    }
+
+    not(rd, rs1) {
+        this.instrucciones.push(new Instruction('not', rd, rs1))
+    }
+    /* ------------------------------------------------------------------ */
+
     sw(rs1, rs2, inmediato = 0) {
         this.instrucciones.push(new Instruction('sw', rs1, `${inmediato}(${rs2})`))
     }
@@ -61,6 +126,10 @@ export class Generador {
         this.instrucciones.push(new Instruction('li', rd, inmediato))
     }
 
+    la(rd, label) {
+        this.instrucciones.push(new Instruction('la', rd, label))
+    }
+
     push(rd = r.T0) {
         this.addi(r.SP, r.SP, -4) // 4 bytes = 32 bits
         this.sw(rd, r.SP)
@@ -68,6 +137,10 @@ export class Generador {
 
     rem(rd, rs1, rs2) {
         this.instrucciones.push(new Instruction('rem', rd, rs1, rs2))
+    }
+
+    mv(rd, rs) {
+        this.instrucciones.push(new Instruction('mv', rd, rs))
     }
 
     pop(rd = r.T0) {
@@ -110,6 +183,34 @@ export class Generador {
         }
     }
 
+    printBool(rd = r.A0) {
+        if (rd !== r.A0) {
+            this.push(r.A0)
+            this.add(r.A0, rd, r.ZERO)
+        }
+
+        this.li(r.A7, 1)
+        this.ecall()
+
+        if (rd !== r.A0) {
+            this.pop(r.A0)
+        }
+    }
+
+    printChar(rd = r.A0) {
+        if (rd !== r.A0) {
+            // Mover el valor del registro rd a a0
+            this.mv(r.A0, rd)
+        }
+
+        // tecnicamnete aqui se imprime solo el primer byte
+        this.andi(r.A0, r.A0, 0xFF)
+
+        this.li(r.A7, 11)
+        this.ecall()
+    }
+    
+
     endProgram() {
         this.li(r.A7, 10)
         this.ecall()
@@ -145,6 +246,18 @@ export class Generador {
 
                 length = 4;
                 break;
+            
+            case 'bool':
+                this.li(r.T0, object.value ? 1 : 0);
+                this.push(r.T0);
+                length = 4;
+                break;
+            
+            case 'char':
+                this.li(r.T0, object.value.charCodeAt(0));
+                this.push(r.T0);
+                length = 4;
+                break;
 
             default:
                 break;
@@ -167,6 +280,12 @@ export class Generador {
                 break;
 
             case 'string':
+                this.pop(rd);
+                break;
+            case 'bool':
+                this.pop(rd);
+                break;
+            case 'char':
                 this.pop(rd);
                 break;
             default:

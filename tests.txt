@@ -49,3 +49,18 @@ System.out.println("The result of 9 * 3 + 2 is: ", result2);
 string greeting = "Hello";
 string name = "Jose";
 System.out.println(greeting, ", ", name, "!");
+
+string a = "hola";
+{
+    string a = "jose";
+    System.out.println(a);
+}
+
+System.out.println(a);
+
+System.out.println(5!=5);
+int jose = 5*7;
+System.out.println(jose > 45);
+
+System.out.println(!true);
+System.out.println(!false);

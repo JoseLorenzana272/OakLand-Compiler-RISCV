@@ -8,6 +8,7 @@ export class CompilerVisitor extends BaseVisitor {
     constructor() {
         super();
         this.code = new Generador();
+
     }
 
     /**
@@ -64,7 +65,91 @@ export class CompilerVisitor extends BaseVisitor {
     }
 
     /**
-     * @type {BaseVisitor['visitOperacionUnaria']}
+     * @type {BaseVisitor['visitRelational']}
+     */
+    visitRelational(node) {
+        this.code.comment(`Operacion Relacional: ${node.op}`);
+        node.izq.accept(this); // izq |
+        node.der.accept(this); // izq | der
+    
+        this.code.popObject(r.T0); // der
+        this.code.popObject(r.T1); // izq
+    
+        switch (node.op) {
+            case '<':
+                this.code.slt(r.T0, r.T1, r.T0); // Si T1 < T0, T0 = 1
+                break;
+            case '<=':
+                this.code.slt(r.T0, r.T1, r.T0); // Si T1 < T0, T0 = 1
+                this.code.seq(r.T1, r.T1, r.T0); // Si son iguales, T1 = 1
+                this.code.or(r.T0, r.T0, r.T1);  // Combinar los resultados
+                break;
+            case '>':
+                this.code.slt(r.T0, r.T0, r.T1); // Si T0 < T1, entonces T0 = 1
+                break;
+            case '>=':
+                this.code.slt(r.T0, r.T0, r.T1); // Si T0 < T1, T0 = 1
+                this.code.seq(r.T1, r.T1, r.T0); // Si son iguales, T1 = 1
+                this.code.or(r.T0, r.T0, r.T1);  // Combinar los resultados
+                break;
+        }
+        this.code.push(r.T0);
+        this.code.pushObject({ type: 'bool', length: 4 });
+    }
+
+    /**
+     * @type {BaseVisitor['visitIgualation']}
+     */
+
+    visitIgualation(node) {
+        this.code.comment(`Operacion Igualacion: ${node.op}`);
+        node.izq.accept(this); // izq |
+        node.der.accept(this); // izq | der
+
+        this.code.popObject(r.T0); // der
+        this.code.popObject(r.T1); // izq
+
+        switch (node.op) {
+            case '==':
+                this.code.xor(r.T0, r.T1, r.T0);
+                this.code.seqz(r.T0, r.T0);
+                break;
+            case '!=':
+                this.code.xor(r.T0, r.T1, r.T0);
+                this.code.snez(r.T0, r.T0);
+                break;
+        }
+        this.code.push(r.T0);
+        this.code.pushObject({ type: 'bool', length: 4 });
+    }
+    
+
+    /**
+     * @type {BaseVisitor['visitLogical']}
+     */
+    visitLogical(node) {
+        this.code.comment(`Operacion Logica: ${node.op}`);
+        node.izq.accept(this); // izq |
+        node.der.accept(this); // izq | der
+
+        this.code.popObject(r.T0); // der
+        this.code.popObject(r.T1); // izq
+
+        switch (node.op) {
+            case '&&':
+                this.code.and(r.T0, r.T0, r.T1);
+                this.code.push(r.T0);
+                break;
+            case '||':
+                this.code.or(r.T0, r.T1, r.T0);
+                this.code.push(r.T0);
+                break;
+        }
+        this.code.pushObject({ type: 'bool', length: 4 });
+    }
+
+    /**
+     * @type {BaseVisitor['visitUnario']}
      */
     visitUnario(node) {
         node.exp.accept(this);
@@ -77,6 +162,12 @@ export class CompilerVisitor extends BaseVisitor {
                 this.code.sub(r.T0, r.T1, r.T0);
                 this.code.push(r.T0);
                 this.code.pushObject({ type: 'int', length: 4 });
+                break;
+            case '!':
+                this.code.li(r.T1, 1);
+                this.code.xor(r.T0, r.T0, r.T1);
+                this.code.push(r.T0);
+                this.code.pushObject({ type: 'bool', length: 4 });
                 break;
         }
 
@@ -94,7 +185,9 @@ export class CompilerVisitor extends BaseVisitor {
 
         const tipoPrint = {
             'int': () => this.code.printInt(),
-            'string': () => this.code.printString()
+            'string': () => this.code.printString(),
+            'bool': () => this.code.printBool(),
+            'char': () => this.code.printChar()
         }
 
         for (let i = 0; i < node.exp.length; i++) {
@@ -166,7 +259,7 @@ export class CompilerVisitor extends BaseVisitor {
 
         this.code.newScope();
 
-        node.dcls.forEach(d => d.accept(this));
+        node.statements.forEach(d => d.accept(this));
 
         this.code.comment('Reduciendo la pila');
         const bytesToRemove = this.code.endScope();
