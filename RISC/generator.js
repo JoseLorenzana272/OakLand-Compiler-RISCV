@@ -26,7 +26,26 @@ export class Generador {
         this.instrucciones = []
         this.objectStack = []
         this.depth = 0
+        this.labelCount = 0
+        this.labels = new Set();
 
+    }
+
+    newLabel() {
+        let label;
+        do {
+            label = `label${this.labelCount++}`;
+        } while (this.labels.has(label));
+        this.labels.add(label);
+        this.instrucciones.push(new Instruction(`${label}:`));
+        return label;
+    }
+
+    label(label) {
+        if (!this.labels.has(label)) {
+            this.labels.add(label);
+            this.instrucciones.push(new Instruction(`${label}:`));
+        }
     }
 
     add(rd, rs1, rs2) {
@@ -65,6 +84,10 @@ export class Generador {
 
     sltiu(rd, rs1, inmediato) {
         this.instrucciones.push(new Instruction('sltiu', rd, rs1, inmediato))
+    }
+
+    seq(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('seq', rd, rs1, rs2))
     }
 
     seqz(rd, rs1) {
@@ -113,6 +136,90 @@ export class Generador {
         this.instrucciones.push(new Instruction('not', rd, rs1))
     }
     /* ------------------------------------------------------------------ */
+    /* ----------------- Instrucciones para if -------------------------- */
+
+    beq(rs1, rs2, label) {
+        this.instrucciones.push(new Instruction('beq', rs1, rs2, label))
+    }
+
+    beqz(rs1, label) {
+        this.instrucciones.push(new Instruction('beqz', rs1, label))
+    }
+
+    bne(rs1, rs2, label) {
+        this.instrucciones.push(new Instruction('bne', rs1, rs2, label))
+    }
+
+    bnez(rs1, label) {
+        this.instrucciones.push(new Instruction('bnez', rs1, label))
+    }
+
+    blt(rs1, rs2, label) {
+        this.instrucciones.push(new Instruction('blt', rs1, rs2, label))
+    }
+
+    bltu(rs1, rs2, label) {
+        this.instrucciones.push(new Instruction('bltu', rs1, rs2, label))
+    }
+
+    bltz(rs1, label) {
+        this.instrucciones.push(new Instruction('bltz', rs1, label))
+    }
+
+    bgt(rs1, rs2, label) {
+        this.instrucciones.push(new Instruction('bgt', rs1, rs2, label))
+    }
+
+    bgtu(rs1, rs2, label) {
+        this.instrucciones.push(new Instruction('bgtu', rs1, rs2, label))
+    }
+
+    bgtz(rs1, label) {
+        this.instrucciones.push(new Instruction('bgtz', rs1, label))
+    }
+
+    ble(rs1, rs2, label) {
+        this.instrucciones.push(new Instruction('ble', rs1, rs2, label))
+    }
+
+    bleu(rs1, rs2, label) {
+        this.instrucciones.push(new Instruction('bleu', rs1, rs2, label))
+    }
+
+    blez(rs1, label) {
+        this.instrucciones.push(new Instruction('blez', rs1, label))
+    }
+
+    bge(rs1, rs2, label) {
+        this.instrucciones.push(new Instruction('bge', rs1, rs2, label))
+    }
+
+    bgeu(rs1, rs2, label) {
+        this.instrucciones.push(new Instruction('bgeu', rs1, rs2, label))
+    }
+
+    bgez(rs1, label) {
+        this.instrucciones.push(new Instruction('bgez', rs1, label))
+    }
+
+    ret() {
+        this.instrucciones.push(new Instruction('ret'))
+    }
+
+    /* ------ Salto incondicional ------ */
+
+    jal(label) {
+        this.instrucciones.push(new Instruction('jal', label))
+    }
+
+    j(label) {
+        this.instrucciones.push(new Instruction('j', label))
+    }
+
+    /* ------------------------------------------------------------------- */
+
+    /* ------------------------ Instrucción de Break ---------------------- */
+
 
     sw(rs1, rs2, inmediato = 0) {
         this.instrucciones.push(new Instruction('sw', rs1, `${inmediato}(${rs2})`))

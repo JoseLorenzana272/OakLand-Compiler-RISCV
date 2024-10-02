@@ -23,9 +23,9 @@ export class CompilerVisitor extends BaseVisitor {
      * @type {BaseVisitor['visitPrimitivo']}
      */
     visitLiteral(node) {
-        this.code.comment(`Primitivo: ${node.valor}`);
+        this.code.comment(`Primitivo: ${node.value}`);
         this.code.pushContant(node);
-        this.code.comment(`Fin Primitivo: ${node.valor}`);
+        this.code.comment(`Fin Primitivo: ${node.value}`);
     }
 
     /**
@@ -80,17 +80,15 @@ export class CompilerVisitor extends BaseVisitor {
                 this.code.slt(r.T0, r.T1, r.T0); // Si T1 < T0, T0 = 1
                 break;
             case '<=':
-                this.code.slt(r.T0, r.T1, r.T0); // Si T1 < T0, T0 = 1
-                this.code.seq(r.T1, r.T1, r.T0); // Si son iguales, T1 = 1
-                this.code.or(r.T0, r.T0, r.T1);  // Combinar los resultados
+                this.code.slt(r.T0, r.T0, r.T1); // Si T1 < T0, T0 = 1
+                this.code.xori(r.T0, r.T0, 1);    // Invertir el resultado
                 break;
             case '>':
                 this.code.slt(r.T0, r.T0, r.T1); // Si T0 < T1, entonces T0 = 1
                 break;
             case '>=':
-                this.code.slt(r.T0, r.T0, r.T1); // Si T0 < T1, T0 = 1
-                this.code.seq(r.T1, r.T1, r.T0); // Si son iguales, T1 = 1
-                this.code.or(r.T0, r.T0, r.T1);  // Combinar los resultados
+                this.code.slt(r.T0, r.T1, r.T0); // Si T0 < T1, entonces T0 = 1
+                this.code.xori(r.T0, r.T0, 1);    // Invertir el resultado
                 break;
         }
         this.code.push(r.T0);
@@ -203,34 +201,71 @@ export class CompilerVisitor extends BaseVisitor {
      */
     visitVariableDeclaration(node) {
         this.code.comment(`Declaracion Variable: ${node.id}`);
+        
+        if (node.value) {
+            // Si hay un valor para la variable, aceptarlo
+            node.value.accept(this);
+        } else {
+            // Si no hay un valor, asignar un valor por defecto basado en el tipo
+            switch (node.type) {
+                case 'int':
+                    this.code.pushObject({ type: 'int', value: 0 }); // Por defecto 0 para int
+                    break;
+                case 'float':
+                    this.code.pushObject({ type: 'float', value: 0.0 }); // Por defecto 0.0 para float
+                    break;
+                case 'string':
+                    this.code.pushObject({ type: 'string', value: "" }); // Por defecto cadena vacía
+                    break;
+                case 'boolean':
+                    this.code.pushObject({ type: 'boolean', value: false }); // Por defecto false
+                    break;
+                default:
+                    throw new Error(`Tipo de variable no soportado: ${node.type}`);
+            }
+        }
 
-
-        node.value.accept(this);
         this.code.tagObject(node.id);
-
         this.code.comment(`Fin declaracion Variable: ${node.id}`);
     }
 
+
     /**
-     * @type {BaseVisitor['visitAsignacion']}
-     */
-    visitVariableAssign(node) {
-        this.code.comment(`Asignacion Variable: ${node.id}`);
+ * @type {BaseVisitor['visitAsignacion']}
+ */
+visitVariableAssign(node) {
+    this.code.comment(`Asignacion Variable: ${node.id}`);
 
-        node.assi.accept(this);
-        const valueObject = this.code.popObject(r.T0);
-        const [offset, variableObject] = this.code.getObject(node.id);
+    node.assi.accept(this);
+    const valueObject = this.code.popObject(r.T0);  // Nuevo valor (expresión asignada)
+    const [offset, variableObject] = this.code.getObject(node.id);
 
-        this.code.addi(r.T1, r.SP, offset);
-        this.code.sw(r.T0, r.T1);
+    this.code.addi(r.T1, r.SP, offset);  // Calcula la dirección de la variable en la pila
+    this.code.lw(r.T2, r.T1);            // Carga el valor actual de la variable en r.T2
 
-        variableObject.type = valueObject.type;
-
-        this.code.push(r.T0);
-        this.code.pushObject(valueObject);
-
-        this.code.comment(`Fin Asignacion Variable: ${node.id}`);
+    // Manejar las operaciones += y -=
+    switch (node.op) {
+        case '+=':
+            this.code.add(r.T0, r.T2, r.T0);  // r.T0 = r.T2 + r.T0 (valor actual + valor nuevo)
+            break;
+        case '-=':
+            this.code.sub(r.T0, r.T2, r.T0);  // r.T0 = r.T2 - r.T0 (valor actual - valor nuevo)
+            break;
+        default:
+            // Asignación simple (a = b)
+            break;
     }
+
+    this.code.sw(r.T0, r.T1);  // Guarda el nuevo valor en la dirección de la variable
+
+    variableObject.type = valueObject.type;
+
+    this.code.push(r.T0);
+    this.code.pushObject(valueObject);
+
+    this.code.comment(`Fin Asignacion Variable: ${node.id}`);
+}
+
 
 
     /**
@@ -271,6 +306,27 @@ export class CompilerVisitor extends BaseVisitor {
         this.code.comment('Fin de bloque');
     }
 
+    /**
+     * @type {BaseVisitor['visitIfNode']}
+     */
+    visitIfNode(node) {
+        // Evaluar la condición
+        node.cond.accept(this);
+
+        this.code.li(r.T0, node.cond.value);
+    
+        // Hacer pop del valor de la condición
+        this.code.popObject(r.T0);
+    
+        // Crear etiquetas
+        const falseLabel = this.code.newLabel();
+        const endLabel = this.code.newLabel();
+
+        //Bloque if
+        this.code.beqz(r.T0, falseLabel);
+        // No se que más hacer aquí
+
+    }
 
 }
 /*
