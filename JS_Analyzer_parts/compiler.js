@@ -510,6 +510,68 @@ visitVariableAssign(node) {
         this.code.comment('Fin Continue');
     }
 
+    /**
+     * @type {BaseVisitor['visitSwitchNode']}
+     */
+    visitSwitchNode(node) {
+        this.code.comment('Inicio de Switch');
+
+        // Evaluar la expresión del switch
+        node.exp.accept(this);
+        this.code.popObject(r.T0);
+
+        const endSwitchLabel = this.code.getLabel();
+        this.break_labels.push(endSwitchLabel);
+
+        const defaultLabel = this.code.getLabel();
+        let hasDefault = false;
+
+        // Se generan las etiquetas para cada caso en un array
+        const caseLabels = node.cases.map(caseNode => ({
+            value: caseNode.value.value,
+            label: this.code.getLabel()
+        }));
+        console.log(caseLabels);
+
+        // Comparar la expresión del switch con cada caso
+        for (const {value, label} of caseLabels) {
+            this.code.comment(`Comparación caso ${value}`);
+            // Aqui es mejor cargar el valor de manera inmediata
+            this.code.li(r.T1, value);
+            this.code.beq(r.T0, r.T1, label);
+        }
+
+        // Se va a default si no cuumple los cases
+        if (node.def) {
+            hasDefault = true;
+            this.code.j(defaultLabel);
+        } else {
+            this.code.j(endSwitchLabel);
+        }
+
+        // Instrucciones de cada case
+        for (let i = 0; i < node.cases.length; i++) {
+            const caseNode = node.cases[i];
+            this.code.addLabel(caseLabels[i].label);
+            this.code.comment(`Ejecutando caso ${caseLabels[i].value}`);
+            caseNode.inst.forEach(stmt => stmt.accept(this));
+            // Fall through to next case if there's no explicit break
+        }
+
+        // Default case
+        if (hasDefault) {
+            this.code.addLabel(defaultLabel);
+            this.code.comment('Caso por defecto');
+            node.def.stmts.forEach(stmt => stmt.accept(this));
+        }
+
+        this.code.addLabel(endSwitchLabel);
+        this.break_labels.pop();
+        this.code.comment('Fin del Switch');
+    }
+
+
+
 }
 /*
 visitPrint(node) {
