@@ -64,3 +64,23 @@ System.out.println(jose > 45);
 
 System.out.println(!true);
 System.out.println(!false);
+
+int goku = 5;
+
+if(goku > 45){
+    System.out.println("Jose" + " Daniel");
+} else if(goku == 5) {
+    if(goku < 10){
+        System.out.println("goku es igual a 5 y menor que 10");
+    } else {
+        System.out.println("goku es igual a 5 pero no menor que 10");
+    }
+} else if(goku > 20 && goku <= 45){
+    System.out.println("goku está entre 20 y 45");
+} else {
+    if(78 > 5 || (false && true)){
+        System.out.println(true);
+    } else {
+        System.out.println(false);
+    }
+}

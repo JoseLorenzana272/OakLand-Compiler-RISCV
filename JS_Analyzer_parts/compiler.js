@@ -36,8 +36,17 @@ export class CompilerVisitor extends BaseVisitor {
         node.izq.accept(this); // izq |
         node.der.accept(this); // izq | der
 
-        this.code.popObject(r.T0); // der
-        this.code.popObject(r.T1); // izq
+        const der = this.code.popObject(r.T0); // der
+        const izq = this.code.popObject(r.T1); // izq
+
+        if (izq.type === 'string' && der.type === 'string') {
+            this.code.add(r.A0, r.ZERO, r.T1);
+            this.code.add(r.A1, r.ZERO, r.T0);
+            this.code.callBuiltin('concatString');
+            this.code.pushObject({ type: 'string', length: 4 });
+            return;
+        }
+        
 
         switch (node.op) {
             case '+':
@@ -133,17 +142,54 @@ export class CompilerVisitor extends BaseVisitor {
         this.code.popObject(r.T0); // der
         this.code.popObject(r.T1); // izq
 
-        switch (node.op) {
-            case '&&':
-                this.code.and(r.T0, r.T0, r.T1);
-                this.code.push(r.T0);
-                break;
-            case '||':
-                this.code.or(r.T0, r.T1, r.T0);
-                this.code.push(r.T0);
-                break;
+        if (node.op === '&&') {
+            node.izq.accept(this); // izq
+            this.code.popObject(r.T0); // izq
+
+            const labelFalse = this.code.getLabel();
+            const labelEnd = this.code.getLabel();
+
+            this.code.beq(r.T0, r.ZERO, labelFalse); // if (!izq) goto labelFalse
+            node.der.accept(this); // der
+            this.code.popObject(r.T0); // der
+            this.code.beq(r.T0, r.ZERO, labelFalse); // if (!der) goto labelFalse
+
+            this.code.li(r.T0, 1);
+            this.code.push(r.T0);
+            this.code.j(labelEnd);
+            this.code.addLabel(labelFalse);
+            this.code.li(r.T0, 0);
+            this.code.push(r.T0);
+
+            this.code.addLabel(labelEnd);
+            this.code.pushObject({ type: 'bool', length: 4 });
+            return
         }
-        this.code.pushObject({ type: 'bool', length: 4 });
+
+        if (node.op === '||') {
+            node.izq.accept(this); // izq
+            this.code.popObject(r.T0); // izq
+
+            const labelTrue = this.code.getLabel();
+            const labelEnd = this.code.getLabel();
+
+            this.code.bne(r.T0, r.ZERO, labelTrue); // if (izq) goto labelTrue
+            node.der.accept(this); // der
+            this.code.popObject(r.T0); // der
+            this.code.bne(r.T0, r.ZERO, labelTrue); // if (der) goto labelTrue
+
+            this.code.li(r.T0, 0);
+            this.code.push(r.T0);
+
+            this.code.j(labelEnd);
+            this.code.addLabel(labelTrue);
+            this.code.li(r.T0, 1);
+            this.code.push(r.T0);
+
+            this.code.addLabel(labelEnd);
+            this.code.pushObject({ type: 'bool', length: 4 });
+            return
+        }
     }
 
     /**
@@ -310,21 +356,51 @@ visitVariableAssign(node) {
      * @type {BaseVisitor['visitIfNode']}
      */
     visitIfNode(node) {
-        // Evaluar la condición
+        this.code.comment('Inicio de If');
+
+        this.code.comment('Condicion');
         node.cond.accept(this);
-
-        this.code.li(r.T0, node.cond.value);
-    
-        // Hacer pop del valor de la condición
         this.code.popObject(r.T0);
-    
-        // Crear etiquetas
-        const falseLabel = this.code.newLabel();
-        const endLabel = this.code.newLabel();
+        this.code.comment('Fin de condicion');
+        /*
+        // no else
+        if (!cond) goto endIf
+            ...
+        endIf:
 
-        //Bloque if
-        this.code.beqz(r.T0, falseLabel);
-        // No se que más hacer aquí
+        // else
+        if (!cond) goto else
+            ...
+        goto endIf
+        else:
+            ...
+        endIf:
+
+        */
+
+        const hasElse = !!node.stmtFalse
+
+        if (hasElse) {
+            const elseLabel = this.code.getLabel();
+            const endIfLabel = this.code.getLabel();
+
+            this.code.beq(r.T0, r.ZERO, elseLabel);
+            this.code.comment('Rama verdadera');
+            node.stmtTrue.accept(this);
+            this.code.j(endIfLabel);
+            this.code.addLabel(elseLabel);
+            this.code.comment('Rama falsa');
+            node.stmtFalse.accept(this);
+            this.code.addLabel(endIfLabel);
+        } else {
+            const endIfLabel = this.code.getLabel();
+            this.code.beq(r.T0, r.ZERO, endIfLabel);
+            this.code.comment('Rama verdadera');
+            node.stmtTrue.accept(this);
+            this.code.addLabel(endIfLabel);
+        }
+
+        this.code.comment('Fin del If');
 
     }
 
