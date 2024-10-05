@@ -8,7 +8,8 @@ export class CompilerVisitor extends BaseVisitor {
     constructor() {
         super();
         this.code = new Generador();
-
+        this.break_labels = [];
+        this.continue_labels = [];
     }
 
     /**
@@ -383,7 +384,6 @@ visitVariableAssign(node) {
         if (hasElse) {
             const elseLabel = this.code.getLabel();
             const endIfLabel = this.code.getLabel();
-
             this.code.beq(r.T0, r.ZERO, elseLabel);
             this.code.comment('Rama verdadera');
             node.stmtTrue.accept(this);
@@ -402,6 +402,112 @@ visitVariableAssign(node) {
 
         this.code.comment('Fin del If');
 
+    }
+
+    /**
+     * @type {BaseVisitor['visitWhileNode']}
+     */
+    visitWhileNode(node) {
+        this.code.comment('Inicio de While');
+
+        const startWhile = this.code.getLabel();
+        this.continue_labels.push(startWhile);
+        const endWhile = this.code.getLabel();
+        this.break_labels.push(endWhile);
+
+        this.code.addLabel(startWhile);
+
+        this.code.comment('Condicion');
+        node.cond.accept(this);
+        this.code.popObject(r.T0);
+        this.code.comment('Fin de condicion');
+
+        this.code.beq(r.T0, r.ZERO, endWhile);
+
+        this.code.comment('Cuerpo del While');
+        node.stmt.accept(this);
+        this.code.j(startWhile);
+
+        this.code.addLabel(endWhile);
+
+        this.code.comment('Fin del While');
+
+    }
+
+    /**
+     * @type [BaseVisitor['visitIncrementDecrement']]
+     */
+    visitIncrementDecrement(node) {
+        this.code.comment(`Incremento/Decremento: ${node.op}`);
+
+        const [offset, object] = this.code.getObject(node.id);
+        this.code.addi(r.T0, r.SP, offset);
+        this.code.lw(r.T1, r.T0);
+
+        if (node.op === '++') {
+            this.code.addi(r.T1, r.T1, 1);
+        } else {
+            this.code.addi(r.T1, r.T1, -1);
+        }
+
+        this.code.sw(r.T1, r.T0);
+
+        this.code.push(r.T1);
+        this.code.pushObject({ ...object, type: 'int' });
+
+        this.code.comment(`Fin Incremento/Decremento: ${node.op}`);
+    }
+
+    /**
+     * @type {BaseVisitor['visitForLoop']}
+     */
+    visitForLoop(node) {
+        this.code.comment('Inicio de For');
+
+        this.code.newScope();
+
+        node.init.accept(this);
+
+        const startFor = this.code.getLabel();
+        this.continue_labels.push(startFor);
+        const endFor = this.code.getLabel();
+        this.break_labels.push(endFor);
+
+        this.code.addLabel(startFor);
+
+        node.cond.accept(this);
+        this.code.popObject(r.T0);
+        this.code.beq(r.T0, r.ZERO, endFor);
+
+        node.stmt.accept(this);
+        node.inc.accept(this);
+
+        this.code.j(startFor);
+        this.code.addLabel(endFor);
+
+        this.code.endScope();
+
+        this.code.comment('Fin de For');
+    }
+
+    /**
+     * @type {BaseVisitor['visitBreakNode']}
+     */
+    visitBreakNode(node) {
+        this.code.comment('Break');
+        const label = this.break_labels[this.break_labels.length - 1];
+        this.code.j(label);
+        this.code.comment('Fin Break');
+    }
+
+    /**
+     * @type {BaseVisitor['visitContinueNode']}
+     */
+    visitContinueNode(node) {
+        this.code.comment('Continue');
+        const label = this.continue_labels[this.continue_labels.length - 1];
+        this.code.j(label);
+        this.code.comment('Fin Continue');
     }
 
 }
