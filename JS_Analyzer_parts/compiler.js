@@ -469,9 +469,12 @@ visitVariableAssign(node) {
         node.init.accept(this);
 
         const startFor = this.code.getLabel();
-        this.continue_labels.push(startFor);
         const endFor = this.code.getLabel();
         this.break_labels.push(endFor);
+
+        //Etiqueta especial para el continue (saltar a la parte de incremento)
+        const continueLabel = this.code.getLabel();
+        this.continue_labels.push(continueLabel);
 
         this.code.addLabel(startFor);
 
@@ -480,6 +483,8 @@ visitVariableAssign(node) {
         this.code.beq(r.T0, r.ZERO, endFor);
 
         node.stmt.accept(this);
+
+        this.code.addLabel(continueLabel);
         node.inc.accept(this);
 
         this.code.j(startFor);
@@ -555,7 +560,7 @@ visitVariableAssign(node) {
             this.code.addLabel(caseLabels[i].label);
             this.code.comment(`Ejecutando caso ${caseLabels[i].value}`);
             caseNode.inst.forEach(stmt => stmt.accept(this));
-            // Fall through to next case if there's no explicit break
+            // Cae en el siguiente caso si no hay break dentro de cada case
         }
 
         // Default case
