@@ -240,6 +240,11 @@ export class CompilerVisitor extends BaseVisitor {
             // hacer pop de la pila
             const object = this.code.popObject(r.A0);
             tipoPrint[object.type]();
+
+            //Salto de linea
+            this.code.li(r.A0, 10);
+            this.code.li(r.A7, 11);
+            this.code.ecall();
         }
     }
 
@@ -351,6 +356,7 @@ visitVariableAssign(node) {
         }
 
         this.code.comment('Fin de bloque');
+
     }
 
     /**
@@ -546,7 +552,7 @@ visitVariableAssign(node) {
             this.code.beq(r.T0, r.T1, label);
         }
 
-        // Se va a default si no cuumple los cases
+        // Se va a default si no cumple los cases
         if (node.def) {
             hasDefault = true;
             this.code.j(defaultLabel);
