@@ -270,7 +270,7 @@ export class Generador {
             throw new Error(`Builtin ${builtinName} not found`)
         }
 
-        if (builtinName === "typeof") {
+        if (builtinName === "typeof" || builtinName === "toString") {
             builtins[builtinName]({ compiler, args })
             return
         }

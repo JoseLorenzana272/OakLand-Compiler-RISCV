@@ -586,9 +586,47 @@ visitVariableAssign(node) {
      * @type {BaseVisitor['visitCallNode']}
      */
     visitCallNode(node) {
-        this.code.comment(`Llamada a función: ${node.id}`);
-        this.code.callBuiltin(node.callee.id, this, node.args);
-        this.code.comment('Fin de llamada a función');
+        if (node.callee.id === 'typeof') {
+            this.code.comment(`Llamada a función: ${node.id}`);
+            this.code.callBuiltin(node.callee.id, this, node.args);
+            this.code.comment('Fin de llamada a función');
+        } else if (node.callee.id === 'toLowerCase') {
+            this.code.comment(`Llamada a función: ${node.callee.id}`);
+            
+            node.args[0].accept(this);
+            console.log(node.args[0]);
+            
+            const strObj = this.code.popObject(r.A0);
+            console.log(strObj);
+            
+            if (strObj.type !== 'string') {
+                throw new Error('TypeError: toLowerCase() requires a string argument');
+            }
+
+            this.code.callBuiltin('toLowerCase');
+            
+            this.code.pushObject({ type: 'string', length: 4 });
+            
+            this.code.comment('Fin de llamada a función');
+        } else if (node.callee.id === 'toUpperCase') {
+            this.code.comment(`Llamada a función: ${node.callee.id}`);
+            
+            node.args[0].accept(this);
+            console.log(node.args[0]);
+            
+            const strObj = this.code.popObject(r.A0);
+            console.log(strObj);
+            
+            if (strObj.type !== 'string') {
+                throw new Error('TypeError: toUpperCase() requires a string argument');
+            }
+
+            this.code.callBuiltin('toUpperCase');
+            
+            this.code.pushObject({ type: 'string', length: 4 });
+            
+            this.code.comment('Fin de llamada a función');
+        }
     }
 
 
