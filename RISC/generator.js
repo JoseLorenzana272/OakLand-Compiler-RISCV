@@ -265,10 +265,16 @@ export class Generador {
         this.instrucciones.push(new Instruction('ecall'))
     }
 
-    callBuiltin(builtinName) {
+    callBuiltin(builtinName, compiler, args) {
         if (!builtins[builtinName]) {
             throw new Error(`Builtin ${builtinName} not found`)
         }
+
+        if (builtinName === "typeof") {
+            builtins[builtinName]({ compiler, args })
+            return
+        }
+
         this._usedBuiltins.add(builtinName)
         this.jal(builtinName)
     }

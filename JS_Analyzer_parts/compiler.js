@@ -241,11 +241,12 @@ export class CompilerVisitor extends BaseVisitor {
             const object = this.code.popObject(r.A0);
             tipoPrint[object.type]();
 
-            //Salto de linea
-            this.code.li(r.A0, 10);
-            this.code.li(r.A7, 11);
-            this.code.ecall();
+            
         }
+        //Salto de linea
+        this.code.li(r.A0, 10);
+        this.code.li(r.A7, 11);
+        this.code.ecall();
     }
 
     /**
@@ -579,6 +580,15 @@ visitVariableAssign(node) {
         this.code.addLabel(endSwitchLabel);
         this.break_labels.pop();
         this.code.comment('Fin del Switch');
+    }
+
+    /**
+     * @type {BaseVisitor['visitCallNode']}
+     */
+    visitCallNode(node) {
+        this.code.comment(`Llamada a función: ${node.id}`);
+        this.code.callBuiltin(node.callee.id, this, node.args);
+        this.code.comment('Fin de llamada a función');
     }
 
 

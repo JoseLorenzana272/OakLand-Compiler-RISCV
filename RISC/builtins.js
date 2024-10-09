@@ -41,6 +41,31 @@ export const concatString = (code) => {
     code.addi(r.HP, r.HP, 1)
 }
 
+// Funciones embebidas
+
+export const toString = (code) => {
+    //Pendiente
+}
+
+export const typeOf = (obj) => {
+    obj.args.forEach(arg => {
+        console.log(arg, obj.compiler);
+        arg.accept(obj.compiler);
+    });
+    const valor = obj.compiler.code.popObject(r.T0);
+    if (valor.type === 'int') {
+        obj.compiler.code.pushContant({ type: 'string', value: 'int' });} else if (valor.type === 'float') {
+        obj.compiler.code.pushContant({ type: 'string', value: 'float' });} else if (valor.type === 'char') {
+        obj.compiler.code.pushContant({ type: 'string', value: 'char' });} else if (valor.type === 'bool') {
+        obj.compiler.code.pushContant({ type: 'string', value: 'bool' });} else if (valor.type === 'string') {
+        obj.compiler.code.pushContant({ type: 'string', value: 'string' });}
+    obj.compiler.code.pushObject({ type: 'string', length: 4 });
+    return
+}
+
+
 export const builtins = {
-    concatString: concatString
+    concatString: concatString,
+    typeof: typeOf
+
 }
