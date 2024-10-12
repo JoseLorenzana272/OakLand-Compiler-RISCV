@@ -1,4 +1,4 @@
-import { registers as r } from "../RISC/constants.js"
+import { registers as r, floatRegisters as f } from "../RISC/constants.js"
 import { Generador } from "../RISC/generator.js";
 import { BaseVisitor } from "./visitor.js";
 
@@ -37,14 +37,40 @@ export class CompilerVisitor extends BaseVisitor {
         node.izq.accept(this); // izq |
         node.der.accept(this); // izq | der
 
-        const der = this.code.popObject(r.T0); // der
-        const izq = this.code.popObject(r.T1); // izq
+        const isDerFloat = this.code.getTopObject().type === 'float';
+        const der = this.code.popObject(isDerFloat ? f.FT0 : r.T0);
+        const isIzqFloat = this.code.getTopObject().type === 'float';
+        const izq = this.code.popObject(isIzqFloat ? f.FT1 : r.T1);
 
         if (izq.type === 'string' && der.type === 'string') {
             this.code.add(r.A0, r.ZERO, r.T1);
             this.code.add(r.A1, r.ZERO, r.T0);
             this.code.callBuiltin('concatString');
             this.code.pushObject({ type: 'string', length: 4 });
+            return;
+        }
+
+        if (isIzqFloat || isDerFloat) {
+            if (!isIzqFloat) this.code.fcvtsw(f.FT1, r.T1);
+            if (!isDerFloat) this.code.fcvtsw(f.FT0, r.T0);
+
+            switch (node.op) {
+                case '+':
+                    this.code.fadd(f.FT0, f.FT1, f.FT0);
+                    break;
+                case '-':
+                    this.code.fsub(f.FT0, f.FT1, f.FT0);
+                    break;
+                case '*':
+                    this.code.fmul(f.FT0, f.FT1, f.FT0);
+                    break;
+                case '/':
+                    this.code.fdiv(f.FT0, f.FT1, f.FT0);
+                    break;
+            }
+
+            this.code.pushFloat(f.FT0);
+            this.code.pushObject({ type: 'float', length: 4 });
             return;
         }
         
@@ -232,13 +258,15 @@ export class CompilerVisitor extends BaseVisitor {
             'int': () => this.code.printInt(),
             'string': () => this.code.printString(),
             'bool': () => this.code.printBool(),
-            'char': () => this.code.printChar()
+            'char': () => this.code.printChar(),
+            'float': () => this.code.printFloat()
         }
 
         for (let i = 0; i < node.exp.length; i++) {
             node.exp[i].accept(this);
             // hacer pop de la pila
-            const object = this.code.popObject(r.A0);
+            const isFloat = this.code.getTopObject().type === 'float';
+            const object = this.code.popObject(isFloat ? f.FA0 : r.A0);
             tipoPrint[object.type]();
 
             
@@ -623,6 +651,33 @@ visitVariableAssign(node) {
 
             this.code.callBuiltin('toUpperCase');
             
+            this.code.pushObject({ type: 'string', length: 4 });
+            
+            this.code.comment('Fin de llamada a función');
+        } else if (node.callee.id === 'toString'){
+            this.code.comment(`Llamada a función: ${node.callee.id}`);
+        
+            // Evaluar el argumento
+            node.args[0].accept(this);
+            
+            // El valor y su tipo deberían estar en el stack ahora
+            const valor = this.code.popObject(r.A0);
+            
+            // Determinar el tipo y ponerlo en A1
+            if (valor.type === 'int') {
+                this.code.li(r.A1, 1);
+            } else if (valor.type === 'bool') {
+                this.code.li(r.A1, 2);
+            } else if (valor.type === 'char') {
+                this.code.li(r.A1, 3);
+            } else if (valor.type === 'string') {
+                this.code.li(r.A1, 4);
+            }
+            
+            // Llamar a la función toString
+            this.code.callBuiltin('toString');
+            
+            // Pushear el descriptor del objeto retornado
             this.code.pushObject({ type: 'string', length: 4 });
             
             this.code.comment('Fin de llamada a función');

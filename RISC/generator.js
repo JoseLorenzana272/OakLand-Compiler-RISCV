@@ -1,5 +1,5 @@
-import { registers as r } from "./constants.js";
-import { stringTo32BitsArray, stringTo1ByteArray } from "./utils.js";
+import { registers as r, floatRegisters as f } from "./constants.js";
+import { stringTo32BitsArray, stringTo1ByteArray, numberToF32 } from "./utils.js";
 import { builtins } from "./builtins.js";
 
 class Instruction {
@@ -61,6 +61,50 @@ export class Generador {
     addi(rd, rs1, inmediato) {
         this.instrucciones.push(new Instruction('addi', rd, rs1, inmediato))
     }
+
+    neg(rd, rs1) {
+        this.instrucciones.push(new Instruction('neg', rd, rs1))
+    }
+
+    /* ---------------- Instrucciones de punto flotante --------------------- */
+    // --- Instruciones flotantes
+
+    fadd(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('fadd.s', rd, rs1, rs2))
+    }
+
+    fsub(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('fsub.s', rd, rs1, rs2))
+    }
+
+    fmul(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('fmul.s', rd, rs1, rs2))
+    }
+
+    fdiv(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('fdiv.s', rd, rs1, rs2))
+    }
+
+    fli(rd, inmediato) {
+        this.instrucciones.push(new Instruction('fli.s', rd, inmediato))
+    }
+
+    fmv(rd, rs1) {
+        this.instrucciones.push(new Instruction('fmv.s', rd, rs1))
+    }
+
+    flw(rd, rs1, inmediato = 0) {
+        this.instrucciones.push(new Instruction('flw', rd, `${inmediato}(${rs1})`))
+    }
+
+    fsw(rs1, rs2, inmediato = 0) {
+        this.instrucciones.push(new Instruction('fsw', rs1, `${inmediato}(${rs2})`))
+    }
+
+    fcvtsw(rd, rs1) {
+        this.instrucciones.push(new Instruction('fcvt.s.w', rd, rs1))
+    }
+
 
     /* ---------------- Instrucciones Relacionales --------------------- */
 
@@ -248,6 +292,11 @@ export class Generador {
         this.sw(rd, r.SP)
     }
 
+    pushFloat(rd = f.FT0) {
+        this.addi(r.SP, r.SP, -4) // 4 bytes = 32 bits
+        this.fsw(rd, r.SP)
+    }
+
     rem(rd, rs1, rs2) {
         this.instrucciones.push(new Instruction('rem', rd, rs1, rs2))
     }
@@ -270,7 +319,7 @@ export class Generador {
             throw new Error(`Builtin ${builtinName} not found`)
         }
 
-        if (builtinName === "typeof" || builtinName === "toString") {
+        if (builtinName === "typeof") {
             builtins[builtinName]({ compiler, args })
             return
         }
@@ -295,6 +344,11 @@ export class Generador {
 
     }
 
+    printFloat() {
+        this.li(r.A7, 2)
+        this.ecall()
+    }
+
     printString(rd = r.A0) {
 
         if (rd !== r.A0) {
@@ -316,8 +370,25 @@ export class Generador {
             this.add(r.A0, rd, r.ZERO)
         }
 
-        this.li(r.A7, 1)
+        //Imprimir "true" o "false"
+        const falseLabel = this.getLabel()
+        const endLabel = this.getLabel()
+
+        this.beqz(r.A0, falseLabel)
+
+        // Imprimir "true"
+        this.la(r.A0, 'true_str')
+        this.li(r.A7, 4)
         this.ecall()
+        this.j(endLabel)
+
+         // Imprimir false
+        this.addLabel(falseLabel)
+        this.la(r.A0, 'false_str')
+        this.li(r.A7, 4)
+        this.ecall()
+
+        this.addLabel(endLabel)
 
         if (rd !== r.A0) {
             this.pop(r.A0)
@@ -389,7 +460,13 @@ export class Generador {
                 this.push(r.T0);
                 length = 4;
                 break;
-
+            
+            case 'float':
+                const ieee754 = numberToF32(object.value);
+                this.li(r.T0, ieee754);
+                this.push(r.T0);
+                length = 4;
+                break;
             default:
                 break;
         }
@@ -399,6 +476,11 @@ export class Generador {
 
     pushObject(object) {
         this.objectStack.push(object);
+    }
+
+    popFloat(rd = f.FT0) {
+        this.flw(rd, r.SP)
+        this.addi(r.SP, r.SP, 4)
     }
 
     popObject(rd = r.T0) {
@@ -419,6 +501,9 @@ export class Generador {
             case 'char':
                 this.pop(rd);
                 break;
+            case 'float':
+                this.popFloat(rd);
+                break;
             default:
                 break;
         }
@@ -429,6 +514,10 @@ export class Generador {
     /*
      FUNCIONES PARA ENTORNOS
     */
+
+    getTopObject() {
+        return this.objectStack[this.objectStack.length - 1];
+    }
 
     newScope() {
         this.depth++
@@ -480,6 +569,8 @@ export class Generador {
         return `
 
 .data
+        true_str:    .string "true"
+        false_str:   .string "false"
         heap:
 .text
 

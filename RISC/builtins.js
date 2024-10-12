@@ -44,13 +44,125 @@ export const concatString = (code) => {
 // Funciones embebidas
 
 export const toString = (code) => {
-    obj.args.forEach(arg => {
-        console.log(arg, obj.compiler);
-        arg.accept(obj.compiler);
-    });
-    const valor = obj.compiler.code.popObject(r.T0);
+    // A0 -> valor a convertir
+    // A1 -> tipo del valor (asumiendo que tienes un sistema de tipos)
+    code.comment('Guardando en el stack la dirección en heap del resultado')
+    code.push(r.HP);
 
-    return
+    const endFunction = code.getLabel()
+    const intCase = code.getLabel()
+    const boolCase = code.getLabel()
+    const charCase = code.getLabel()
+    const stringCase = code.getLabel()
+    const falseBranch = code.getLabel()
+
+    // Determinar el tipo y saltar a la sección correspondiente
+    code.li(r.T0, 1)  // 1 = int
+    code.beq(r.A1, r.T0, intCase)
+    code.li(r.T0, 2)  // 2 = bool
+    code.beq(r.A1, r.T0, boolCase)
+    code.li(r.T0, 3)  // 3 = char
+    code.beq(r.A1, r.T0, charCase)
+    code.li(r.T0, 4)  // 4 = string
+    code.beq(r.A1, r.T0, stringCase)
+
+    // Caso int
+    code.addLabel(intCase)
+    const intEnd = code.getLabel()
+    const intLoop = code.getLabel()
+    const intReverse = code.getLabel()
+    
+    code.add(r.T1, r.ZERO, r.HP)
+    
+    // Si es negativo, poner el signo '-'
+    code.bgez(r.A0, intLoop)
+    code.li(r.T2, 45)    // ASCII de '-'
+    code.sb(r.T2, r.HP)
+    code.addi(r.HP, r.HP, 1)
+    code.neg(r.A0, r.A0)   // Hacer positivo el número
+    
+    code.addLabel(intLoop)
+    // Dividir por 10 y guardar el residuo
+    code.li(r.T2, 10)
+    code.rem(r.T3, r.A0, r.T2)    // T3 = residuo
+    code.div(r.A0, r.A0, r.T2)    // A0 = cociente
+    
+    // Convertir dígito a ASCII y guardarlo
+    code.addi(r.T3, r.T3, 48)   // ASCII '0' = 48
+    code.sb(r.T3, r.HP)
+    code.addi(r.HP, r.HP, 1)
+    
+    code.bnez(r.A0, intLoop)
+    
+    // Revertir los dígitos
+    code.add(r.T2, r.ZERO, r.HP)  // T2 = fin
+    code.addi(r.T2, r.T2, -1)     // Ajustar para último dígito
+    
+    code.addLabel(intReverse)
+    code.bge(r.T1, r.T2, intEnd)
+    code.lb(r.T3, (r.T1))      // Cargar dígito del inicio
+    code.lb(r.T4, (r.T2))      // Cargar dígito del final
+    code.sb(r.T4, (r.T1))      // Guardar dígito del final al inicio
+    code.sb(r.T3, (r.T2))      // Guardar dígito del inicio al final
+    code.addi(r.T1, r.T1, 1)    // Mover inicio hacia adelante
+    code.addi(r.T2, r.T2, -1)   // Mover final hacia atrás
+    code.j(intReverse)
+    
+    code.addLabel(intEnd)
+    code.j(endFunction)
+
+    // Caso bool
+    code.addLabel(boolCase)
+    code.beqz(r.A0, falseBranch)
+    // true
+    code.li(r.T1, 116)  // 't'
+    code.sb(r.T1, r.HP)
+    code.li(r.T1, 114)  // 'r'
+    code.sb(r.T1, (r.HP))
+    code.li(r.T1, 117)  // 'u'
+    code.sb(r.T1, (r.HP))
+    code.li(r.T1, 101)  // 'e'
+    code.sb(r.T1, (r.HP))
+    code.addi(r.HP, r.HP, 4)
+    code.j(endFunction)
+
+    code.addLabel(falseBranch)
+    code.li(r.T1, 102)  // 'f'
+    code.sb(r.T1, r.HP)
+    code.li(r.T1, 97)   // 'a'
+    code.sb(r.T1, (r.HP))
+    code.li(r.T1, 108)  // 'l'
+    code.sb(r.T1, (r.HP))
+    code.li(r.T1, 115)  // 's'
+    code.sb(r.T1, (r.HP))
+    code.li(r.T1, 101)  // 'e'
+    code.sb(r.T1, (r.HP))
+    code.addi(r.HP, r.HP, 5)
+    code.j(endFunction)
+
+    // Caso char
+    code.addLabel(charCase)
+    code.sb(r.A0, r.HP)
+    code.addi(r.HP, r.HP, 1)
+    code.j(endFunction)
+
+    // Caso string (simplemente copiar)
+    code.addLabel(stringCase)
+    const endString = code.getLabel()
+    const loopString = code.addLabel()
+    code.lb(r.T1, r.A0)
+    code.beq(r.T1, r.ZERO, endString)
+    code.sb(r.T1, r.HP)
+    code.addi(r.HP, r.HP, 1)
+    code.addi(r.A0, r.A0, 1)
+    code.j(loopString)
+    code.addLabel(endString)
+
+    // Fin de la función
+    code.addLabel(endFunction)
+    code.comment('Agregando el caracter nulo al final')
+    code.sb(r.ZERO, r.HP)
+    code.addi(r.HP, r.HP, 1)
 }
 
 export const typeOf = (obj) => {
