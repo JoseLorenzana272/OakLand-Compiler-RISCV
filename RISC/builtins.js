@@ -1,4 +1,4 @@
-import { registers as r } from "./constants.js"
+import { registers as r, floatRegisters as f } from "./constants.js"
 import { Generador } from "./generator.js"
 
 /**
@@ -111,33 +111,30 @@ export const toString = (code) => {
     code.addLabel(intEnd)
     code.j(endFunction)
 
-    // Caso bool
+    // Caso float
+    
+    // Caso bool (optimizado)
+    const copyString = code.getLabel()
+    const endCopyString = code.getLabel()
     code.addLabel(boolCase)
     code.beqz(r.A0, falseBranch)
     // true
-    code.li(r.T1, 116)  // 't'
-    code.sb(r.T1, r.HP)
-    code.li(r.T1, 114)  // 'r'
-    code.sb(r.T1, (r.HP))
-    code.li(r.T1, 117)  // 'u'
-    code.sb(r.T1, (r.HP))
-    code.li(r.T1, 101)  // 'e'
-    code.sb(r.T1, (r.HP))
-    code.addi(r.HP, r.HP, 4)
-    code.j(endFunction)
+    code.la(r.T1, 'true_str')
+    code.j(copyString)
 
     code.addLabel(falseBranch)
-    code.li(r.T1, 102)  // 'f'
-    code.sb(r.T1, r.HP)
-    code.li(r.T1, 97)   // 'a'
-    code.sb(r.T1, (r.HP))
-    code.li(r.T1, 108)  // 'l'
-    code.sb(r.T1, (r.HP))
-    code.li(r.T1, 115)  // 's'
-    code.sb(r.T1, (r.HP))
-    code.li(r.T1, 101)  // 'e'
-    code.sb(r.T1, (r.HP))
-    code.addi(r.HP, r.HP, 5)
+    code.la(r.T1, 'false_str')
+
+    // Copiar la cadena correspondiente al heap
+    
+    code.addLabel(copyString)
+    code.lb(r.T2, (r.T1))
+    code.beqz(r.T2, endCopyString)
+    code.sb(r.T2, (r.HP))
+    code.addi(r.HP, r.HP, 1)
+    code.addi(r.T1, r.T1, 1)
+    code.j(copyString)
+    code.addLabel(endCopyString)
     code.j(endFunction)
 
     // Caso char
@@ -291,6 +288,89 @@ export const toUpperCase = (code) => {
     code.comment('Fin de la cadena')
 }
 
+export const parseIntString = (code) => {
+    // A0 -> dirección en heap de la cadena a convertir
+    // result -> push en el stack el valor entero resultante
+
+    code.comment('Inicializando el resultado en 0')
+    code.li(r.T0, 0)
+
+    code.comment('Verificando si el primer carácter es un signo negativo')
+    code.lb(r.T1, r.A0)
+    code.li(r.T2, 45)  // ASCII del signo '-'
+    const notNegative = code.getLabel()
+    code.bne(r.T1, r.T2, notNegative)
+    code.addi(r.A0, r.A0, 1)  // Si es negativo, avanzamos al siguiente carácter
+    code.addLabel(notNegative)
+
+    const parseLoop = code.getLabel()
+    const endParse = code.getLabel()
+    const isNegative = code.getLabel()
+    const pushResult = code.getLabel()
+
+    code.comment('Iterando sobre cada carácter de la cadena')
+    code.addLabel(parseLoop)
+    code.lb(r.T1, r.A0)
+    code.beqz(r.T1, endParse)  // Si llegamos al final de la cadena (carácter nulo), terminamos
+
+
+    code.comment('Convirtiendo el carácter ASCII a su valor numérico')
+    code.addi(r.T1, r.T1, -48)  // ASCII '0' = 48
+
+    code.comment('Verificando si el carácter es un dígito válido (0-9)')
+    code.li(r.T2, 0)
+    code.blt(r.T1, r.T2, endParse)  // Si es menor que 0, terminamos
+    code.li(r.T2, 9)
+    code.bgt(r.T1, r.T2, endParse)  // Si es mayor que 9, terminamos
+
+    code.comment('Multiplicando el resultado acumulado por 10 y sumando el nuevo dígito')
+    code.li(r.T3, 10)
+    code.mul(r.T0, r.T0, r.T3)
+    code.add(r.T0, r.T0, r.T1)
+
+    code.comment('Avanzando al siguiente carácter')
+    code.addi(r.A0, r.A0, 1)
+    code.j(parseLoop)
+
+
+
+    code.addLabel(endParse)
+
+    code.comment('Verificando si el número es negativo')
+    code.lb(r.T1, r.A0)
+    code.li(r.T2, 45)  // ASCII del signo '-'
+    code.bne(r.T1, r.T2, pushResult)
+    
+    code.addLabel(isNegative)
+    code.comment('Si es negativo, negamos el resultado antes de guardarlo')
+    code.neg(r.T0, r.T0)
+
+    code.addLabel(pushResult)
+    code.comment('Guardando el resultado en el stack')
+    code.push(r.T0)
+
+    code.comment('Retornando de la función')
+    code.jr(r.RA)
+}
+
+export const parseIntFloat = (code) => {
+    // A0 -> contiene el valor flotante a convertir
+    // result -> push en el stack el valor entero resultante
+
+    code.comment('Convertir float a int')
+    
+    // Mover el valor flotante de A0 a FT0
+    code.fmvs(f.FT0, f.FA0)
+    
+    // Truncar el float a int
+    code.fcvtws(r.T0, f.FT0)
+    
+    code.comment('Guardando el resultado en el stack')
+    code.push(r.T0)
+
+    code.comment('Retornando de la función')
+    code.jr(r.RA)
+}
 
 export const builtins = {
     concatString: concatString,
@@ -298,4 +378,6 @@ export const builtins = {
     toString: toString,
     toLowerCase: toLowerCase,
     toUpperCase: toUpperCase,
+    parseIntString: parseIntString,
+    parseIntFloat: parseIntFloat,
 }

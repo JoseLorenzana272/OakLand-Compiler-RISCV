@@ -657,13 +657,10 @@ visitVariableAssign(node) {
         } else if (node.callee.id === 'toString'){
             this.code.comment(`Llamada a función: ${node.callee.id}`);
         
-            // Evaluar el argumento
             node.args[0].accept(this);
             
-            // El valor y su tipo deberían estar en el stack ahora
             const valor = this.code.popObject(r.A0);
             
-            // Determinar el tipo y ponerlo en A1
             if (valor.type === 'int') {
                 this.code.li(r.A1, 1);
             } else if (valor.type === 'bool') {
@@ -674,11 +671,31 @@ visitVariableAssign(node) {
                 this.code.li(r.A1, 4);
             }
             
-            // Llamar a la función toString
             this.code.callBuiltin('toString');
             
-            // Pushear el descriptor del objeto retornado
             this.code.pushObject({ type: 'string', length: 4 });
+            
+            this.code.comment('Fin de llamada a función');
+        }else if (node.callee.id === 'parseInt') {
+
+            this.code.comment(`Llamada a función: ${node.callee.id}`);
+        
+            node.args[0].accept(this);
+            const isFloat = this.code.getTopObject().type === 'float';
+            const valor = this.code.popObject(isFloat ? f.FA0 : r.A0);
+
+            if (valor.type === 'string' || valor.type === 'int') {
+
+                this.code.callBuiltin('parseIntString');
+
+                this.code.pushObject({ type: 'int', length: 4 });
+            }else if(valor.type === 'float'){
+                this.code.callBuiltin('parseIntFloat');
+
+                this.code.pushObject({ type: 'int', length: 4 });
+            }else {
+                throw new Error('TypeError: parseInt() requires a string, float, or int argument');
+            }
             
             this.code.comment('Fin de llamada a función');
         }
