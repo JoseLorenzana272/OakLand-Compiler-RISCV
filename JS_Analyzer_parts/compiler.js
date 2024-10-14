@@ -108,8 +108,32 @@ export class CompilerVisitor extends BaseVisitor {
         node.izq.accept(this); // izq |
         node.der.accept(this); // izq | der
     
-        this.code.popObject(r.T0); // der
-        this.code.popObject(r.T1); // izq
+        const isDerFloat = this.code.getTopObject().type === 'float';
+        const der = this.code.popObject(isDerFloat ? f.FT0 : r.T0);
+        const isIzqFloat = this.code.getTopObject().type === 'float';
+        const izq = this.code.popObject(isIzqFloat ? f.FT1 : r.T1);
+
+        if (isIzqFloat || isDerFloat) {
+            if (!isIzqFloat) this.code.fcvtsw(f.FT1, r.T1);
+            if (!isDerFloat) this.code.fcvtsw(f.FT0, r.T0);
+            switch (node.op) {
+                case '<':
+                    this.code.flt(r.T0, f.FT1, f.FT0);
+                    break;
+                case '<=':
+                    this.code.fle(r.T0, f.FT1, f.FT0);
+                    break;
+                case '>':
+                    this.code.flt(r.T0, f.FT0, f.FT1);
+                    break;
+                case '>=':
+                    this.code.fle(r.T0, f.FT0, f.FT1);
+                    break;
+            }
+            this.code.push(r.T0);
+            this.code.pushObject({ type: 'bool', length: 4 });
+            return;
+        }
     
         switch (node.op) {
             case '<':
@@ -140,8 +164,29 @@ export class CompilerVisitor extends BaseVisitor {
         node.izq.accept(this); // izq |
         node.der.accept(this); // izq | der
 
-        this.code.popObject(r.T0); // der
-        this.code.popObject(r.T1); // izq
+        const isDerFloat = this.code.getTopObject().type === 'float';
+        const der = this.code.popObject(isDerFloat ? f.FT0 : r.T0);
+        const isIzqFloat = this.code.getTopObject().type === 'float';
+        const izq = this.code.popObject(isIzqFloat ? f.FT1 : r.T1);
+
+        if (isIzqFloat || isDerFloat) {
+            if (!isIzqFloat) this.code.fcvtsw(f.FT1, r.T1);
+            if (!isDerFloat) this.code.fcvtsw(f.FT0, r.T0);
+
+            switch (node.op) {
+                case '==':
+                    this.code.feq(r.T0, f.FT1, f.FT0);
+                    break;
+                case '!=':
+                    this.code.feq(r.T0, f.FT1, f.FT0);
+                    this.code.xori(r.T0, r.T0, 1);
+                    break;
+            }
+
+            this.code.push(r.T0);
+            this.code.pushObject({ type: 'bool', length: 4 });
+            return;
+        }
 
         switch (node.op) {
             case '==':
@@ -225,7 +270,21 @@ export class CompilerVisitor extends BaseVisitor {
     visitUnario(node) {
         node.exp.accept(this);
 
-        this.code.popObject(r.T0);
+        const isFloat = this.code.getTopObject().type === 'float';
+        this.code.popObject(isFloat ? f.FT0 : r.T0);
+
+        if (isFloat) {
+            switch (node.op) {
+                case '-':
+                    this.code.fmvw(f.FT1, r.T0);
+                    this.code.fneg(f.FT0, f.FT1);
+                    this.code.pushFloat(f.FT0);
+                    this.code.pushObject({ type: 'float', length: 4 });
+                    break;
+            }
+            return;
+        }
+
 
         switch (node.op) {
             case '-':
@@ -658,8 +717,8 @@ visitVariableAssign(node) {
             this.code.comment(`Llamada a función: ${node.callee.id}`);
         
             node.args[0].accept(this);
-            
-            const valor = this.code.popObject(r.A0);
+            const isFloat = this.code.getTopObject().type === 'float';
+            const valor = this.code.popObject(isFloat ? f.FA0 : r.A0);
             
             if (valor.type === 'int') {
                 this.code.li(r.A1, 1);
@@ -669,6 +728,11 @@ visitVariableAssign(node) {
                 this.code.li(r.A1, 3);
             } else if (valor.type === 'string') {
                 this.code.li(r.A1, 4);
+            } else if (valor.type === 'float') {
+                this.code.li(r.A1, 5);
+                this.code.callBuiltin('floatToString');
+                this.code.pushObject({ type: 'string', length: 4 });
+                return;
             }
             
             this.code.callBuiltin('toString');
@@ -695,6 +759,30 @@ visitVariableAssign(node) {
                 this.code.pushObject({ type: 'int', length: 4 });
             }else {
                 throw new Error('TypeError: parseInt() requires a string, float, or int argument');
+            }
+            
+            this.code.comment('Fin de llamada a función');
+
+        }else if (node.callee.id === 'parseFloat') {
+
+            this.code.comment(`Llamada a función: ${node.callee.id}`);
+        
+            node.args[0].accept(this);
+            const isFloat = this.code.getTopObject().type === 'float';
+            const valor = this.code.popObject(isFloat ? f.FA0 : r.A0);
+
+            if (valor.type === 'string') {
+
+                this.code.callBuiltin('parseFloat');
+
+                this.code.pushObject({ type: 'float', length: 4 });
+            }else if(valor.type === 'int'){
+                this.code.callBuiltin('parseFloatInt');
+
+                this.code.pushObject({ type: 'float', length: 4 });
+            }
+            else {
+                throw new Error('TypeError: parseFloat() requires a string, float, or int argument');
             }
             
             this.code.comment('Fin de llamada a función');

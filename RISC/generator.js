@@ -66,6 +66,10 @@ export class Generador {
         this.instrucciones.push(new Instruction('neg', rd, rs1))
     }
 
+    fmvw(rd, rs1) {
+        this.instrucciones.push(new Instruction('fmv.w.x', rd, rs1))
+    }
+
     /* ---------------- Instrucciones de punto flotante --------------------- */
     // --- Instruciones flotantes
 
@@ -85,6 +89,10 @@ export class Generador {
         this.instrucciones.push(new Instruction('fdiv.s', rd, rs1, rs2))
     }
 
+    frem(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('frem.s', rd, rs1, rs2))
+    }
+
     fli(rd, inmediato) {
         this.instrucciones.push(new Instruction('fli.s', rd, inmediato))
     }
@@ -93,8 +101,20 @@ export class Generador {
         this.instrucciones.push(new Instruction('flt.s', rd, rs1, rs2))
     }
 
+    fle(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('fle.s', rd, rs1, rs2))
+    }
+
     fcvtsw(rd, rs1) {
         this.instrucciones.push(new Instruction('fcvt.s.w', rd, rs1))
+    }
+
+    fmvwx(rd, rs1) {
+        this.instrucciones.push(new Instruction('fmv.x.w', rd, rs1))
+    }
+
+    fmvxw(rd, rs1) {
+        this.instrucciones.push(new Instruction('fmv.x.w', rd, rs1))
     }
 
     fcvtws (rd, rs1) {
@@ -118,12 +138,17 @@ export class Generador {
     }
 
     fneg(rd, rs1) {
-        this.instrucciones.push(new Instruction('fneg', rd, rs1))
+        this.instrucciones.push(new Instruction('fneg.s', rd, rs1))
     }
 
     fmvs(rd, rs1) {
         this.instrucciones.push(new Instruction('fmv.s', rd, rs1))
     }
+
+    feq(rd, rs1, rs2) {
+        this.instrucciones.push(new Instruction('feq.s', rd, rs1, rs2))
+    }
+
 
 
     /* ---------------- Instrucciones Relacionales --------------------- */
