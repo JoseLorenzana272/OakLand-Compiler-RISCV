@@ -395,30 +395,54 @@ visitVariableAssign(node) {
     this.code.comment(`Asignacion Variable: ${node.id}`);
 
     node.assi.accept(this);
-    const valueObject = this.code.popObject(r.T0);  // Nuevo valor (expresión asignada)
+    const isFloat = this.code.getTopObject().type === 'float';
+    const valueObject = this.code.popObject(isFloat ? f.FT0 : r.T0);
     const [offset, variableObject] = this.code.getObject(node.id);
 
     this.code.addi(r.T1, r.SP, offset);  // Calcula la dirección de la variable en la pila
-    this.code.lw(r.T2, r.T1);            // Carga el valor actual de la variable en r.T2
+
+    if (variableObject.type == 'float'){
+        this.code.flw(f.FT2, r.T1);            // Carga el valor actual de la variable en r.T2
+    }else{
+        this.code.lw(r.T2, r.T1);            // Carga el valor actual de la variable en r.T2
+    }
+    
 
     // Manejar las operaciones += y -=
     switch (node.op) {
         case '+=':
-            this.code.add(r.T0, r.T2, r.T0);  // r.T0 = r.T2 + r.T0 (valor actual + valor nuevo)
+            if (isFloat) {
+                this.code.fadd(f.FT0, f.FT1, f.FT0);  // FT0 = FT1 + FT0 (valor actual + valor nuevo)
+            } else {
+                this.code.add(r.T0, r.T2, r.T0);  // T0 = T2 + T0 (valor actual + valor nuevo)
+            }
             break;
         case '-=':
-            this.code.sub(r.T0, r.T2, r.T0);  // r.T0 = r.T2 - r.T0 (valor actual - valor nuevo)
+            if (isFloat) {
+                this.code.fsub(f.FT0, f.FT1, f.FT0);  // FT0 = FT1 - FT0 (valor actual - valor nuevo)
+            } else {
+                this.code.sub(r.T0, r.T2, r.T0);  // T0 = T2 - T0 (valor actual - valor nuevo)
+            }
             break;
         default:
-            // Asignación simple (a = b)
+            // Asignación simple (a = b), no se requiere operación adicional
             break;
     }
 
-    this.code.sw(r.T0, r.T1);  // Guarda el nuevo valor en la dirección de la variable
+
+    if (isFloat) {
+        this.code.fsw(f.FT0, r.T1);
+    } else {
+        this.code.sw(r.T0, r.T1);
+    }
 
     variableObject.type = valueObject.type;
 
-    this.code.push(r.T0);
+    if (isFloat) {
+        this.code.pushFloat(f.FT0);
+    } else {
+        this.code.push(r.T0);
+    }
     this.code.pushObject(valueObject);
 
     this.code.comment(`Fin Asignacion Variable: ${node.id}`);
@@ -434,9 +458,16 @@ visitVariableAssign(node) {
 
 
         const [offset, variableObject] = this.code.getObject(node.id);
+        const isFloat = variableObject.type === 'float';
+
         this.code.addi(r.T0, r.SP, offset);
-        this.code.lw(r.T1, r.T0);
-        this.code.push(r.T1);
+        if (isFloat) {
+            this.code.flw(f.FT0, r.T0);
+            this.code.pushFloat(f.FT0);
+        } else {
+            this.code.lw(r.T1, r.T0);
+            this.code.push(r.T1);
+        }
         this.code.pushObject({ ...variableObject, id: undefined });
 
         // this.code.comment(`Fin Referencia Variable: ${node.id}`);
