@@ -29,7 +29,12 @@ export class Generador {
         this.depth = 0
         this._usedBuiltins = new Set()
         this._labelCounter = 0;
+        this._Array = new Map();
+        
+    }
 
+    setArray(id, length){
+        this._Array.set(id, length);
     }
 
     getLabel() {
@@ -618,6 +623,7 @@ export class Generador {
         return `
 
 .data
+        ${Array.from(this._Array.entries()).map(([key, value]) => `${key}: .space ${value * 4}`).join('\n')}
         true_str:    .string "true"
         false_str:   .string "false"
         heap:

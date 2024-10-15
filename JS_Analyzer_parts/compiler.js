@@ -810,6 +810,54 @@ visitVariableAssign(node) {
         }
     }
 
+    
+    /**
+     * @type {BaseVisitor['VectorDeclaration']}
+     */
+    visitVectorDeclaration(node) {
+        this.code.comment(`Declaracion Vector: ${node.id}`);
+        this.code.setArray(node.id, node.size);
+        this.code.la(r.T5, node.id);
+        this.code.push(r.T5);
+        node.values.forEach(value => {
+            const isFloat = value.type === 'float';
+            value.accept(this);
+            this.code.popObject(isFloat ? f.FT1 : r.T1);
+            if (isFloat) {
+                this.code.fsw(f.FT1, r.T5);
+            }else{
+                this.code.sw(r.T1, r.T5);
+            }
+            this.code.addi(r.T5, r.T5, 4);
+        });
+        this.code.pushObject({type: 'array-'+node.type, length: 4, depth: this.code.depth});
+        this.code.tagObject(node.id);
+        this.code.comment(`Fin declaracion Vector: ${node.id}`);
+    }
+
+    /**
+     * @type {BaseVisitor['visitArrayAccess']}
+     */
+    visitArrayAccess(node) {
+        this.code.comment(`Acceso a vector: ${node.id}`);
+        node.index.accept(this);
+        const isFloat = this.code.getTopObject().type === 'float';
+        this.code.popObject(isFloat ? f.FT1 : r.T1);
+        const [offset, object] = this.code.getObject(node.id);
+        this.code.la(r.T5, node.id);
+        this.code.li(r.T2, 4);
+        this.code.mul(r.T1, r.T1, r.T2);
+        this.code.add(r.T5, r.T5, r.T1);
+        if (!isFloat){
+            this.code.lw(r.T1, r.T5);
+            this.code.push(r.T1);
+        }else{
+            this.code.flw(f.FT1, r.T5);
+            this.code.pushFloat(f.FT1);
+        }
+        this.code.pushObject({type: object.type.replace('array-', ''), length: 4});
+        this.code.comment(`Fin acceso a vector: ${node.id}`);
+    }
 
 
 }
