@@ -830,7 +830,7 @@ visitVariableAssign(node) {
             }
             this.code.addi(r.T5, r.T5, 4);
         });
-        this.code.pushObject({type: 'array-'+node.type, length: 4, depth: this.code.depth});
+        this.code.pushObject({type: 'array-'+node.type, length: node.size, depth: this.code.depth});
         this.code.tagObject(node.id);
         this.code.comment(`Fin declaracion Vector: ${node.id}`);
     }
@@ -844,10 +844,10 @@ visitVariableAssign(node) {
         const isFloat = this.code.getTopObject().type === 'float';
         this.code.popObject(isFloat ? f.FT1 : r.T1);
         const [offset, object] = this.code.getObject(node.id);
-        this.code.la(r.T5, node.id);
-        this.code.li(r.T2, 4);
-        this.code.mul(r.T1, r.T1, r.T2);
-        this.code.add(r.T5, r.T5, r.T1);
+        this.code.la(r.T5, node.id); // Cargar la dirección base del array
+        this.code.li(r.T2, 4); // Cargar el tamaño de un elemento del array
+        this.code.mul(r.T1, r.T1, r.T2); // Aqui es el indice * 4
+        this.code.add(r.T5, r.T5, r.T1); // sse sumará el indice al puntero base
         if (!isFloat){
             this.code.lw(r.T1, r.T5);
             this.code.push(r.T1);
@@ -855,8 +855,88 @@ visitVariableAssign(node) {
             this.code.flw(f.FT1, r.T5);
             this.code.pushFloat(f.FT1);
         }
-        this.code.pushObject({type: object.type.replace('array-', ''), length: 4});
+        this.code.pushObject({type: object.type.replace('array-', ''), length: object.length});
         this.code.comment(`Fin acceso a vector: ${node.id}`);
+    }
+
+    /**
+     * @type {BaseVisitor['visitIndexOf']}
+     */
+    visitIndexOf(node) {
+        this.code.comment(`IndexOf: ${node.id}`);
+        node.exp.accept(this);
+        const isFloat = this.code.getTopObject().type === 'float';
+        this.code.popObject(isFloat ? f.FT1 : r.T1);
+        const [offset, object] = this.code.getObject(node.id);
+        
+        this.code.la(r.T5, node.id);
+        this.code.li(r.T3, 0); // index = 0
+        
+        const startIndexOf = this.code.getLabel();
+        const endIndexOf = this.code.getLabel();
+        const foundIndexOf = this.code.getLabel();
+        const notFoundIndexOf = this.code.getLabel();
+
+        this.code.addLabel(startIndexOf);
+
+        this.code.li(r.T4, object.length); // Cargar la longitud del array
+        this.code.beq(r.T3, r.T4, notFoundIndexOf); // Si índice == longitud, no encontrado
+
+        if (!isFloat){
+            this.code.lw(r.T2, r.T5); // Cargar el valor en la posición actual
+        }else{
+            this.code.flw(f.FT2, r.T5); // Cargar el valor en la posición actual
+        }
+
+        if (!isFloat){
+            this.code.beq(r.T1, r.T2, foundIndexOf); // Si valor == buscado, encontrado
+        }else{
+            this.code.feq(f.FT3, f.FT1, f.FT2); // Si valor == buscado, encontrado
+            this.code.bnez(f.FT3, foundIndexOf);         
+        }
+
+        this.code.addi(r.T5, r.T5, 4); // Avanzar al siguiente elemento del array
+        this.code.addi(r.T3, r.T3, 1); // Incrementar el índice
+        this.code.j(startIndexOf);
+
+        this.code.addLabel(notFoundIndexOf);
+        this.code.li(r.T3, -1); // Si no se encontró, index = -1
+        this.code.push(r.T3);
+        this.code.j(endIndexOf);
+
+        this.code.addLabel(foundIndexOf);
+        this.code.push(r.T3);
+        this.code.j(endIndexOf);
+
+        this.code.addLabel(endIndexOf);
+        this.code.pushObject({type: 'int', length: 4});
+        this.code.comment(`Fin IndexOf: ${node.id}`);
+        
+    }
+
+    /**
+     * @type {BaseVisitor['visitLength']}
+    */
+    visitLength(node) {
+        this.code.comment(`Length: ${node.id}`);
+        const [offset, object] = this.code.getObject(node.id);
+        console.log(object);
+        this.code.la(r.T5, node.id);
+        this.code.li(r.T1, object.length);
+        this.code.push(r.T1);
+        this.code.pushObject({type: 'int', length: 4});
+        this.code.comment(`Fin Length: ${node.id}`);
+    }
+
+    /**
+     * @type {BaseVisitor['visitJoin']}
+     */
+    visitJoin(node) {
+        this.code.comment(`Join: ${node.id}`);
+        const [offset, object] = this.code.getObject(node.id);
+        // arr1 = [1, 2, 3] => "1,2,3"
+        const delimiter = 44;  // ASCII de ','
+        // TODO: Implementar Join
     }
 
 
