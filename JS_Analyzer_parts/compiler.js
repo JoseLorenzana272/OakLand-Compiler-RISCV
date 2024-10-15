@@ -934,9 +934,58 @@ visitVariableAssign(node) {
     visitJoin(node) {
         this.code.comment(`Join: ${node.id}`);
         const [offset, object] = this.code.getObject(node.id);
-        // arr1 = [1, 2, 3] => "1,2,3"
-        const delimiter = 44;  // ASCII de ','
-        // TODO: Implementar Join
+        const isFloat = object.type === 'float';
+        // arr1 = [1, 2, 3] => "123" (por el momento, sin separador)
+
+        this.code.la(r.T5, node.id);
+        this.code.li(r.T1, object.length); 
+        this.code.li(r.T2, 0); // i = 0
+
+        const joinLoop = this.code.getLabel();
+        const joinEnd = this.code.getLabel();
+
+        this.code.addLabel(joinLoop);
+        this.code.beq(r.T2, r.T1, joinEnd); // Si i == longitud, terminar
+        this.code.lw(r.T3, r.T5); // Cargar el valor en la posición actual
+        this.code.addi(r.T5, r.T5, 4); // Avanzar al siguiente elemento del array
+
+
+        this.code.push(r.T3);
+        this.code.callBuiltin('toString');
+        
+        this.code.addi(r.T2, r.T2, 1); // Incrementar i
+        this.code.j(joinLoop);
+
+        this.code.addLabel(joinEnd);
+        this.code.pushObject({type: 'string', length: 4});
+        this.code.comment(`Fin Join: ${node.id}`);
+        //TODO: Implementar el join con un separador, igual aun no sirve
+
+    }
+
+    /**
+     * @type {BaseVisitor['visitVectorAssign']}
+     */
+    visitVectorAssign(node) {
+        this.code.comment(`Asignacion Vector: ${node.id}`);
+        const [offset, object] = this.code.getObject(node.id);
+        this.code.la(r.T5, node.id);
+        this.code.li(r.T2, 4); // Cargar el tamaño de un elemento del array
+        node.index.accept(this);
+        const isFloat = this.code.getTopObject().type === 'float';
+        this.code.popObject(isFloat ? f.FT1 : r.T1);
+        this.code.mul(r.T1, r.T1, r.T2); // Aqui es el indice * 4
+        this.code.add(r.T5, r.T5, r.T1); // sse sumará el indice al puntero base
+        node.assi.accept(this);
+        const isFloatValue = this.code.getTopObject().type === 'float';
+        this.code.popObject(isFloatValue ? f.FT0 : r.T0);
+        if (isFloatValue) {
+            this.code.fsw(f.FT0, r.T5); // Guardar el valor en la posición del array
+        }else{
+            this.code.sw(r.T0, r.T5); // Guardar el valor en la posición del array
+        }
+        this.code.pushObject({type: object.type.replace('array-', ''), length: object.length});
+        this.code.comment(`Fin Asignacion Vector: ${node.id}`);
     }
 
 
