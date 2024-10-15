@@ -92,7 +92,21 @@ ArrayDecl = "[" _ "]" dims:("[" _ "]")* { return "[]".repeat(1 + dims.length); }
 
 Operations = Assignment
 
-Assignment = id:Id _ op:("="/"+="/"-=") _ assi:Assignment{ return createNode('VariableAssign', {id, op, assi})}
+Assignment = id:Id _ op:("="/"+="/"-=") _ assi:Assignment{ 
+  if (op === "=") {
+    return createNode('VariableAssign', {id, op, assi})
+  } else {
+    let operation;
+    const varValue = createNode('VariableValue', { id });
+    if (op === "+=") {
+      operation = createNode('Arithmetic', { op:"+", izq: varValue, der:assi })
+    } else {
+      operation = createNode('Arithmetic', { op:"-", izq: varValue, der:assi })
+    }
+
+    return createNode('VariableAssign', {id, op:"=", assi:operation})
+  }
+  }
             /id:Id "[" _ index:Operations _ "]" _ op:("=") _ assi:Assignment{ return createNode('VectorAssign', {id, index, op, assi})} 
             /TernaryOp
 

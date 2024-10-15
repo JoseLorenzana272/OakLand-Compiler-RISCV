@@ -17,7 +17,8 @@ export class CompilerVisitor extends BaseVisitor {
      */
     visitOpSentence(node) {
         node.o.accept(this);
-        this.code.popObject(r.T0);
+        const isFloat = this.code.getTopObject().type === 'float';
+        this.code.popObject(isFloat ? f.FT0 : r.T0);
     }
 
     /**
@@ -401,49 +402,20 @@ visitVariableAssign(node) {
 
     this.code.addi(r.T1, r.SP, offset);  // Calcula la dirección de la variable en la pila
 
-    if (variableObject.type == 'float'){
-        this.code.flw(f.FT2, r.T1);            // Carga el valor actual de la variable en r.T2
-    }else{
-        this.code.lw(r.T2, r.T1);            // Carga el valor actual de la variable en r.T2
-    }
-    
 
-    // Manejar las operaciones += y -=
-    switch (node.op) {
-        case '+=':
-            if (isFloat) {
-                this.code.fadd(f.FT0, f.FT1, f.FT0);  // FT0 = FT1 + FT0 (valor actual + valor nuevo)
-            } else {
-                this.code.add(r.T0, r.T2, r.T0);  // T0 = T2 + T0 (valor actual + valor nuevo)
-            }
-            break;
-        case '-=':
-            if (isFloat) {
-                this.code.fsub(f.FT0, f.FT1, f.FT0);  // FT0 = FT1 - FT0 (valor actual - valor nuevo)
-            } else {
-                this.code.sub(r.T0, r.T2, r.T0);  // T0 = T2 - T0 (valor actual - valor nuevo)
-            }
-            break;
-        default:
-            // Asignación simple (a = b), no se requiere operación adicional
-            break;
-    }
-
-
-    if (isFloat) {
+    if (variableObject.type == 'float') {
+        if (valueObject.type !== 'float') {
+            this.code.fcvtsw(f.FT0, r.T0);
+        }
         this.code.fsw(f.FT0, r.T1);
-    } else {
-        this.code.sw(r.T0, r.T1);
-    }
-
-    variableObject.type = valueObject.type;
-
-    if (isFloat) {
         this.code.pushFloat(f.FT0);
     } else {
+        this.code.sw(r.T0, r.T1);
         this.code.push(r.T0);
     }
-    this.code.pushObject(valueObject);
+
+    
+    this.code.pushObject(variableObject);
 
     this.code.comment(`Fin Asignacion Variable: ${node.id}`);
 }
