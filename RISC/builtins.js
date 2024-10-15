@@ -560,6 +560,72 @@ export const parseFloatInt = (code) => {
     code.jr(r.RA)
 }
 
+export const stringEqualString = (code) => {
+    // A0 -> dirección en heap de la primera cadena
+    // A1 -> dirección en heap de la segunda cadena
+    // result -> push en el stack 1 si las cadenas son iguales, 0 si no lo son
+
+    const loop = code.getLabel()
+    const equal = code.getLabel()
+    const notEqual = code.getLabel()
+    const end = code.getLabel()
+
+    code.comment('Comparando las cadenas')
+    code.addLabel(loop)
+    code.lb(r.T1, r.A0)
+    code.lb(r.T2, r.A1)
+    code.bne(r.T1, r.T2, notEqual)
+    code.beq(r.T1, r.ZERO, equal)
+    code.addi(r.A0, r.A0, 1)
+    code.addi(r.A1, r.A1, 1)
+    code.j(loop)
+
+    // ambas son iguales, se retorna 1
+    code.addLabel(equal)
+    code.li(r.T0, 1)
+    code.push(r.T0)
+    code.j(end)
+
+    // no son iguales, se retorna 0
+    code.addLabel(notEqual)
+    code.push(r.ZERO)
+
+    code.addLabel(end)
+}
+
+export const stringNotEqualString = (code) => {
+    // A0 -> dirección en heap de la primera cadena
+    // A1 -> dirección en heap de la segunda cadena
+    // result -> push en el stack 1 si las cadenas no son iguales, 0 si lo son
+
+    const loop = code.getLabel()
+    const equal = code.getLabel()
+    const notEqual = code.getLabel()
+    const end = code.getLabel()
+
+    code.comment('Comparando las cadenas')
+    code.addLabel(loop)
+    code.lb(r.T1, r.A0)
+    code.lb(r.T2, r.A1)
+    code.bne(r.T1, r.T2, notEqual)
+    code.beq(r.T1, r.ZERO, equal)
+    code.addi(r.A0, r.A0, 1)
+    code.addi(r.A1, r.A1, 1)
+    code.j(loop)
+
+    // ambas son iguales, se retorna 0
+    code.addLabel(equal)
+    code.push(r.ZERO)
+    code.j(end)
+
+    // no son iguales, se retorna 1
+    code.addLabel(notEqual)
+    code.li(r.T0, 1)
+    code.push(r.T0)
+
+    code.addLabel(end)
+}
+
 export const builtins = {
     concatString: concatString,
     typeof: typeOf,
@@ -571,4 +637,6 @@ export const builtins = {
     floatToString: floatToString,
     parseFloat: parseFloat,
     parseFloatInt: parseFloatInt,
+    stringEqualString: stringEqualString,
+    stringNotEqualString: stringNotEqualString
 }

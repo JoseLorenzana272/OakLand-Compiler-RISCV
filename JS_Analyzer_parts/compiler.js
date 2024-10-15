@@ -169,6 +169,24 @@ export class CompilerVisitor extends BaseVisitor {
         const isIzqFloat = this.code.getTopObject().type === 'float';
         const izq = this.code.popObject(isIzqFloat ? f.FT1 : r.T1);
 
+        if (izq.type === 'string' && der.type === 'string') {
+            switch (node.op) {
+                case '==':
+                    this.code.mv(r.A0, r.T1);
+                    this.code.mv(r.A1, r.T0);
+                    this.code.callBuiltin('stringEqualString');
+                    break;
+                case '!=':
+                    this.code.mv(r.A0, r.T1);
+                    this.code.mv(r.A1, r.T0);
+                    this.code.callBuiltin('stringNotEqualString');
+                    break;
+            }
+
+            this.code.pushObject({ type: 'bool', length: 4 });
+            return;
+        }
+
         if (isIzqFloat || isDerFloat) {
             if (!isIzqFloat) this.code.fcvtsw(f.FT1, r.T1);
             if (!isDerFloat) this.code.fcvtsw(f.FT0, r.T0);
