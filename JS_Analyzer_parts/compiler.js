@@ -802,24 +802,94 @@ visitVariableAssign(node) {
      * @type {BaseVisitor['VectorDeclaration']}
      */
     visitVectorDeclaration(node) {
-        this.code.comment(`Declaracion Vector: ${node.id}`);
-        this.code.setArray(node.id, node.size);
-        this.code.la(r.T5, node.id);
-        this.code.push(r.T5);
-        node.values.forEach(value => {
-            const isFloat = value.type === 'float';
-            value.accept(this);
-            this.code.popObject(isFloat ? f.FT1 : r.T1);
-            if (isFloat) {
-                this.code.fsw(f.FT1, r.T5);
-            }else{
-                this.code.sw(r.T1, r.T5);
+        if (Array.isArray(node.values)) {
+            this.code.comment(`Declaracion Vector: ${node.id}`);
+            this.code.setArray(node.id, node.size);
+            this.code.la(r.T5, node.id);
+            this.code.push(r.T5);
+            node.values.forEach(value => {
+                const isFloat = value.type === 'float';
+                value.accept(this);
+                this.code.popObject(isFloat ? f.FT1 : r.T1);
+                if (isFloat) {
+                    this.code.fsw(f.FT1, r.T5);
+                }else{
+                    this.code.sw(r.T1, r.T5);
+                }
+                this.code.addi(r.T5, r.T5, 4);
+            });
+
+        //Caso en el que se declara un vector sin valores (valores por defecto)
+        } else if (node.size){
+            const size = node.size;
+            console.log("SIZE",size.value);
+            this.code.comment(`Declaracion Vector: ${node.id}`);
+            this.code.setArray(node.id, size.value);
+            this.code.la(r.T5, node.id);
+            this.code.push(r.T5);
+            for (let i = 0; i < node.size; i++) {
+                const Literal = new nodos.Literal({ type: node.type, value: 0 });
+                Literal.accept(this);
+                const isFloat = this.code.getTopObject().type === 'float';
+                this.code.popObject(isFloat ? f.FT1 : r.T1);
+                if (isFloat) {
+                    this.code.fsw(f.FT1, r.T5);
+                }else{
+                    this.code.sw(r.T1, r.T5);
+                }
+                this.code.addi(r.T5, r.T5, 4);
             }
-            this.code.addi(r.T5, r.T5, 4);
-        });
-        this.code.pushObject({type: 'array-'+node.type, length: node.size, depth: this.code.depth});
-        this.code.tagObject(node.id);
-        this.code.comment(`Fin declaracion Vector: ${node.id}`);
+
+        //Caso en el que se hace la copia de un vector ya existente
+        }else{
+            const sourceVectorId = node.values;
+            const [sourceOffset, sourceObject] = this.code.getObject(sourceVectorId);
+            console.log("SOURCE",sourceObject);
+
+
+            this.code.setArray(node.id, sourceObject.length);
+            this.code.la(r.T5, node.id);        // T5 = dirección del vector destino
+            this.code.la(r.T1, sourceVectorId);  // T1 = dirección del vector fuente
+
+            this.code.li(r.T2, sourceObject.length); // T2 = tamaño del vector fuente
+                
+            this.code.addi(r.T1, r.T1, 4);  // T1 = dirección primer elemento fuente
+            this.code.addi(r.T5, r.T5, 4);  // T5 = dirección primer elemento destino
+            
+            // Copiar elementos
+            this.code.comment(`Copiando elementos del vector ${sourceVectorId}`);
+            const loopLabel = this.code.getLabel();
+            const endLabel = this.code.getLabel();
+            
+            this.code.li(r.T3, 0);  // T3 = contador
+            
+            this.code.addLabel(loopLabel);
+            this.code.bge(r.T3, r.T2, endLabel);  // Si contador >= tamaño, terminar
+            
+            // Copiar elemento
+            if (node.type === 'float') {
+                this.code.flw(f.FT1, r.T1);  // Cargar valor float del vector fuente
+                this.code.fsw(f.FT1, r.T5);  // Guardar valor float en vector destino
+            } else {
+                this.code.lw(r.T4, r.T1);    // Cargar valor int del vector fuente
+                this.code.sw(r.T4, r.T5);    // Guardar valor int en vector destino
+            }
+            
+            // Incrementar punteros y contador
+            this.code.addi(r.T1, r.T1, 4);   // Avanzar puntero fuente
+            this.code.addi(r.T5, r.T5, 4);   // Avanzar puntero destino
+            this.code.addi(r.T3, r.T3, 1);   // Incrementar contador
+            this.code.j(loopLabel);           // Volver al inicio del bucle
+            
+            // Fin del bucle
+            this.code.addLabel(endLabel);
+            }
+
+            const objectLength = Array.isArray(node.values) ? node.values.length : node.size ? node.size.value : this.code.getObject(node.values)[1].length;
+            console.log("OBJECT LENGTH",objectLength);
+            this.code.pushObject({type: 'array-'+node.type, length: objectLength, depth: this.code.depth});
+            this.code.tagObject(node.id);
+            this.code.comment(`Fin declaracion Vector: ${node.id}`);
     }
 
     /**

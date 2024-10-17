@@ -272,7 +272,7 @@ export class InterpreterVisitor extends BaseVisitor {
                 }
 
                 // Validación específica para int y float
-                if (variableValue.type === 'int' && !Number.isInteger(variableValue.value)) {
+                if (variableValue.type === 'int' && !Number.isInteger(variableValue.value) && variableValue.value % 1 !== 0) {
                     throw new Errors(`An int was expected, but received a float: ${variableValue.value}`, node.location);
                 }
 

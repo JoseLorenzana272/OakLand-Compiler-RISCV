@@ -645,6 +645,41 @@ export const stringNotEqualString = (code) => {
     code.addLabel(end)
 }
 
+export const zeroDivision = (code) => {
+    code.comment('=== Zero Division Check ===');
+    
+    // Etiqueta de inicio del multitin
+    code.addLabel('_zeroDivision');
+    
+    // Guardar el denominador en T0
+    code.pop(r.T0);
+    
+    code.comment('Verificar si el denominador es 0');
+    const notZero = code.getLabel();
+    const errorZero = code.getLabel();
+    
+    // Verificar si T0 es 0
+    code.beqz(r.T0, errorZero);
+    code.j(notZero);
+    
+    // Manejo del error de división por cero
+    code.addLabel(errorZero);
+    code.comment('Error: División por cero');
+    // Aquí podrías imprimir un mensaje de error o manejar el error como prefieras
+    code.li(r.A0, 4);  // Código de error para división por cero
+    code.li(r.A7, 93); // Syscall para terminar el programa con error
+    code.ecall()
+    
+    // Continuar si no hay error
+    code.addLabel(notZero);
+    code.push(r.T0);
+    
+    // Retornar del multitin
+    code.jr(r.RA);
+    
+    code.comment('=== Fin Zero Division Check ===');
+}
+
 export const builtins = {
     concatString: concatString,
     typeof: typeOf,
@@ -657,5 +692,6 @@ export const builtins = {
     parseFloat: parseFloat,
     parseFloatInt: parseFloatInt,
     stringEqualString: stringEqualString,
-    stringNotEqualString: stringNotEqualString
+    stringNotEqualString: stringNotEqualString,
+    zeroDivision: zeroDivision
 }
