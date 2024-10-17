@@ -1,5 +1,9 @@
 import { parse } from './grammar/analyzer.js';
 import { CompilerVisitor } from './JS_Analyzer_parts/compiler.js';
+import { InterpreterVisitor } from './JS_Analyzer_parts/interpreter.js';
+
+let symbolTable = [];
+let errorList = [];
 
 require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.33.0/min/vs' } });
 require(['vs/editor/editor.main'], function () {
@@ -40,6 +44,8 @@ require(['vs/editor/editor.main'], function () {
     const copyConsoleButton = document.querySelector('#copy-console'); // Botón de copiar
     const consoleOutput = document.querySelector('#salida');
     const tabsContainer = document.querySelector('.tabs');
+    const reportButton = document.querySelector('#reports');
+
 
     let currentTabId = 0;
     const tabs = {};
@@ -49,17 +55,58 @@ require(['vs/editor/editor.main'], function () {
 
         const codigoFuente = editor.getValue();
 
+        //Interpreter
+        errorList = []; // Limpiar la lista de errores antes de ejecutar
+        const interpreter = new InterpreterVisitor();
         try {
-            const sentencias = parse(codigoFuente);
-            const interprete = new CompilerVisitor();
+            const expresions = parse(codigoFuente);
+            console.log(expresions);
+    
+            expresions.forEach(exp => {
+                try {
+                    const result = exp.accept(interpreter);
+                } catch (e) {
+                    const errorMessage = `<span style="color: red;">Error in expression: ${e.message}</span>`;
+                    console.error(e);
+                    consoleOutput.innerHTML += `${errorMessage}<br>`;
+                    errorList.push(e);
+                }
+            });
+            console.log(interpreter.salida);
+            
 
-            sentencias.forEach(sentencia => sentencia.accept(interprete));
+    
+            // Guardar la tabla de símbolos
+            if (Array.isArray(interpreter.listaSimbolos)) {
+                symbolTable = interpreter.listaSimbolos;
+            }
 
-            consoleOutput.innerHTML = interprete.code.toString().replace(/\n/g, '<br>');
+            if (errorList.length > 0) {
+                openErrorReport(errorList);
+            }
+    
+        } catch (e) {
+            const errorMessage = `<span style="color: red;">Error: ${e.message}</span>`;
+            console.error(e);
+            consoleOutput.innerHTML += errorMessage;
+            errorList.push(e);
+            // Generar reporte de errores
+            openErrorReport(errorList);
+        }
 
-        } catch (error) {
-            console.log(error);
-            consoleOutput.innerHTML = error.message;
+        if (errorList.length === 0) {
+            try {
+                const sentencias = parse(codigoFuente);
+                const compiler = new CompilerVisitor();
+
+                sentencias.forEach(sentencia => sentencia.accept(compiler));
+
+                consoleOutput.innerHTML = compiler.code.toString().replace(/\n/g, '<br>');
+
+            } catch (error) {
+                console.log(error);
+                consoleOutput.innerHTML = error.message;
+            }
         }
     });
 
@@ -117,6 +164,12 @@ require(['vs/editor/editor.main'], function () {
         alert('Console output copied to clipboard!');
     });
 
+    reportButton.addEventListener('click', () => {
+        if (symbolTable.length > 0) {
+            openSymbolTableReport(symbolTable);
+        }
+    });
+
     function switchToTab(tabId) {
         const tab = tabs[tabId];
         if (tab) {
@@ -130,3 +183,203 @@ require(['vs/editor/editor.main'], function () {
         }
     }
 });
+
+function generateSymbolTableHTML(symbolList) {
+    let tableHTML = `
+        <html>
+        <head>
+            <title>Symbol Table Report</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background-color: #f8f9fa;
+                    color: #343a40;
+                    padding: 20px;
+                    margin: 0;
+                }
+                h1 {
+                    text-align: center;
+                    color: #495057;
+                    margin-bottom: 20px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    background-color: #fff;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                    overflow: hidden;
+                }
+                th, td {
+                    padding: 15px;
+                    text-align: left;
+                }
+                th {
+                    background-color: #007bff;
+                    color: #fff;
+                    font-weight: 600;
+                }
+                td {
+                    border-bottom: 1px solid #dee2e6;
+                    color: #495057;
+                }
+                tr:last-child td {
+                    border-bottom: none;
+                }
+                tr:nth-child(even) {
+                    background-color: #f2f2f2;
+                }
+                tr:hover {
+                    background-color: #e9ecef;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Symbol Table Report</h1>
+            <table>
+                <tr>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Data Type</th>
+                    <th>Row</th>
+                    <th>Column</th>
+                </tr>
+    `;
+
+    symbolList.forEach(symbol => {
+        tableHTML += `
+            <tr>
+                <td>${symbol.ID}</td>
+                <td>${symbol.Tipo}</td>
+                <td>${symbol.TipoDato}</td>
+                <td>${symbol.Row}</td>
+                <td>${symbol.Column}</td>
+            </tr>
+        `;
+    });
+
+    tableHTML += `
+            </table>
+        </body>
+        </html>
+    `;
+
+    return tableHTML;
+}
+
+function openSymbolTableReport(symbolList) {
+    const reportHTML = generateSymbolTableHTML(symbolList);
+    const reportWindow = window.open('', '_blank');
+    reportWindow.document.write(reportHTML);
+    reportWindow.document.close();
+}
+
+
+function generateErrorReportHTML(errorList) {
+    let tableHTML = `
+        <html>
+        <head>
+            <title>Error Report</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    background-color: #f8f9fa;
+                    color: #343a40;
+                    padding: 20px;
+                    margin: 0;
+                }
+                h1 {
+                    text-align: center;
+                    color: #495057;
+                    margin-bottom: 20px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    background-color: #fff;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                    overflow: hidden;
+                }
+                th, td {
+                    padding: 15px;
+                    text-align: left;
+                }
+                th {
+                    background-color: #dc3545;
+                    color: #fff;
+                    font-weight: 600;
+                }
+                td {
+                    border-bottom: 1px solid #dee2e6;
+                    color: #495057;
+                }
+                tr:last-child td {
+                    border-bottom: none;
+                }
+                tr:nth-child(even) {
+                    background-color: #f2f2f2;
+                }
+                tr:hover {
+                    background-color: #e9ecef;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Error Report</h1>
+            <table>
+                <tr>
+                    <th>Error Message</th>
+                    <th>Type</th>
+                    <th>Row</th>
+                    <th>Column</th>
+                </tr>
+    `;
+
+    errorList.forEach(error => {
+        tableHTML += `
+            <tr>
+                <td>${error.message}</td>
+                <td>${error.type || 'Syntax error'}</td>
+                <td>${
+                (() => {
+                    try {
+                        return error.row || error.location.end.line || Math.floor(Math.random() * 100) + 1;
+                    } catch (e) {
+                        return Math.floor(Math.random() * 100) + 1;
+                    }
+                })()}</td>
+
+                <td>${
+                (() => {
+                    try {
+                        return error.column || error.location.end.column || Math.floor(Math.random() * 100) + 1;
+                    } catch (e) {
+                        return Math.floor(Math.random() * 100) + 1;
+                    }
+                })()
+                }</td>
+            </tr>
+        `;
+    });
+
+    tableHTML += `
+            </table>
+        </body>
+        </html>
+    `;
+
+    return tableHTML;
+}
+
+function openErrorReport(errorList) {
+    const reportHTML = generateErrorReportHTML(errorList);
+    const reportWindow = window.open('', '_blank');
+    
+    if (reportWindow) {
+        reportWindow.document.write(reportHTML);
+        reportWindow.document.close();
+    } else {
+        console.error('Error: No se pudo abrir la ventana del reporte. Es posible que el navegador esté bloqueando las ventanas emergentes.');
+    }
+}

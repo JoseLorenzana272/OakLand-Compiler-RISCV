@@ -1,5 +1,6 @@
 import { registers as r, floatRegisters as f } from "../RISC/constants.js"
 import { Generador } from "../RISC/generator.js";
+import nodos from "./nodos.js";
 import { BaseVisitor } from "./visitor.js";
 
 
@@ -365,23 +366,9 @@ export class CompilerVisitor extends BaseVisitor {
             // Si hay un valor para la variable, aceptarlo
             node.value.accept(this);
         } else {
-            // Si no hay un valor, asignar un valor por defecto basado en el tipo
-            switch (node.type) {
-                case 'int':
-                    this.code.pushObject({ type: 'int', value: 0 }); // Por defecto 0 para int
-                    break;
-                case 'float':
-                    this.code.pushObject({ type: 'float', value: 0.0 }); // Por defecto 0.0 para float
-                    break;
-                case 'string':
-                    this.code.pushObject({ type: 'string', value: "" }); // Por defecto cadena vacía
-                    break;
-                case 'boolean':
-                    this.code.pushObject({ type: 'boolean', value: false }); // Por defecto false
-                    break;
-                default:
-                    throw new Error(`Tipo de variable no soportado: ${node.type}`);
-            }
+            const Literal = new nodos.Literal({ type: node.type, value: 0 });
+            Literal.accept(this);
+            
         }
 
         this.code.tagObject(node.id);
@@ -784,7 +771,7 @@ visitVariableAssign(node) {
             
             this.code.comment('Fin de llamada a función');
 
-        }else if (node.callee.id === 'parseFloat') {
+        }else if (node.callee.id === 'parsefloat') {
 
             this.code.comment(`Llamada a función: ${node.callee.id}`);
         
