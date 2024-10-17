@@ -163,74 +163,93 @@ export const toString = (code) => {
 }
 
 export const floatToString = (code) => {
-    // A0 -> valor a convertir
-    // A1 -> tipo del valor
-    code.comment('Guardando en el stack la dirección en heap del resultado')
+    // A0 -> valor a convertir en f.FT0
+    code.comment('Guardando en el stack la dirección en heap del resultado');
     code.push(r.HP);
 
-    const endFunction = code.getLabel()
-    const floatCase = code.getLabel()
-    const floatEnd = code.getLabel()
-    const floatLoop = code.getLabel()
-    const floatReverse = code.getLabel()
+    const intFloatLoop = code.getLabel();
+    const partFloatLoop = code.getLabel();
+    const endFloatLoop = code.getLabel();
+    const revertirEntero = code.getLabel();
+    const endFunction = code.getLabel();
+    const skip_negative = code.getLabel();
 
-    code.comment('Convertir float a string')
-    code.fcvtsw(f.FT0, r.A0)
-    code.fmvxw(r.A0, f.FT0)
-
-    code.addLabel(floatCase)
-    code.add(r.T1, r.ZERO, r.HP)
-
-    // Si es negativo, poner el signo '-'
-    code.flt(r.T0, f.FT0, f.FT0); // Comparar si FT0 < 0
-    code.beqz(r.T0, floatLoop);
-    code.li(r.T2, 45)    // ASCII de '-'
-    code.sb(r.T2, r.HP)
-    code.addi(r.HP, r.HP, 1)
-    code.fneg(f.FT0, f.FT0)   // Hacer positivo el número
-
-    code.addLabel(floatLoop)
-    // Dividir por 10 y guardar el residuo
-    code.li(r.T2, 10);
-    code.fdiv(f.FT1, f.FT0, f.FT2); // FT1 = cociente (parte entera)
+    // Manejar la parte entera
+    code.li(r.T2, 10);  // Para la división de la parte entera
+    code.fcvtws(r.T0, f.FT0);  // Convertir la parte entera del float a entero
     
-    // Calcular el residuo
-    code.fmul(f.FT1, f.FT1, f.FT2); // FT1 = parte entera * 10
-    code.fsub(f.FT1, f.FT0, f.FT1); // FT1 = valor - (parte entera * 10)
+    // Verificar si el número es negativo
+    code.flt(r.T5, f.FT0, f.FT3);  // FT3 debe ser 0.0
+    code.beqz(r.T5, skip_negative);
+    code.li(r.T3, 45);  // ASCII del signo menos
+    code.sb(r.T3, r.HP);
+    code.addi(r.HP, r.HP, 1);
+    code.addLabel(skip_negative);
+    // Guardar inicio de la parte entera para luego revertir
+    code.add(r.T1, r.ZERO, r.HP);  // r.T1 apunta al inicio de la parte entera
+
+    // Manejar caso especial cuando el número es 0
+    code.bnez(r.T0, intFloatLoop);
+    code.li(r.T3, 48);  // ASCII de '0'
+    code.sb(r.T3, r.HP);
+    code.addi(r.HP, r.HP, 1);
+    code.j(endFloatLoop);
+
+    code.addLabel(intFloatLoop);
+    code.div(r.T4, r.T0, r.T2);  // Dividir para ver si quedan más dígitos
+    code.rem(r.T3, r.T0, r.T2);  // Obtener el último dígito
+    code.div(r.T0, r.T0, r.T2);  // Reducir el valor
+    code.addi(r.T3, r.T3, 48);  // Convertir el dígito en ASCII
+    code.sb(r.T3, r.HP);  // Guardar el dígito en el heap
+    code.addi(r.HP, r.HP, 1);  // Avanzar el heap pointer
+    code.bnez(r.T0, intFloatLoop);  // Repetir hasta que no queden más dígitos
+
+    // Revertir la parte entera
+    code.add(r.T2, r.ZERO, r.HP);  // r.T2 apunta al final de la parte entera
+    code.addi(r.T2, r.T2, -1);  // Ajustar para que apunte al último dígito
+
+    code.addLabel(revertirEntero);
+    code.bge(r.T1, r.T2, endFloatLoop);
+    code.lb(r.T3, r.T1);
+    code.lb(r.T4, r.T2);
+    code.sb(r.T4, r.T1);
+    code.sb(r.T3, r.T2);
+    code.addi(r.T1, r.T1, 1);
+    code.addi(r.T2, r.T2, -1);
+    code.j(revertirEntero);
+
+    // Colocar el punto decimal
+    code.addLabel(endFloatLoop);
+    code.li(r.T3, 46);  // ASCII del punto '.'
+    code.sb(r.T3, r.HP);
+    code.addi(r.HP, r.HP, 1);
+
+    // Manejar la parte fraccionaria
+    code.fcvtsw(f.FT1, r.T0);  // Convertir parte entera a float
+    code.fsub(f.FT0, f.FT0, f.FT1);  // Obtener la parte decimal
+    code.li(r.T1, 1000000);  // Factor de escala para 6 decimales
+    code.fcvtsw(f.FT1, r.T1);  // Convertir factor a float
+    code.fmul(f.FT0, f.FT0, f.FT1);  // Multiplicar parte decimal por factor
+    code.fcvtws(r.T0, f.FT0);  // Convertir a entero
+
+    // Imprimir parte decimal
+    code.li(r.T2, 10);  // Divisor para extraer dígitos
+    code.li(r.T4, 6);   // Contador para 6 decimales
     
-    // Convertir dígito a ASCII y guardarlo
-    code.fmvwx(r.T3, f.FT1)
-    code.addi(r.T3, r.T3, 48)   // ASCII '0' = 48
-    code.sb(r.T3, r.HP)
-    code.addi(r.HP, r.HP, 1)
+    code.addLabel(partFloatLoop);
+    code.beqz(r.T4, endFunction);  // Si ya imprimimos 6 decimales, terminar
+    code.rem(r.T3, r.T0, r.T2);  // Obtener dígito
+    code.div(r.T0, r.T0, r.T2);  // Preparar siguiente dígito
+    code.addi(r.T3, r.T3, 48);  // Convertir a ASCII
+    code.sb(r.T3, r.HP);  // Guardar dígito
+    code.addi(r.HP, r.HP, 1);  // Avanzar puntero
+    code.addi(r.T4, r.T4, -1);  // Decrementar contador
+    code.j(partFloatLoop);
 
-    code.fmvwx(r.T3, f.FT0)
-    code.fmvwx(r.T2, f.FT2)
-    code.fmvwx(r.T1, f.FT1)
-    code.j(floatLoop)
-
-    // Revertir los dígitos
-    code.add(r.T2, r.ZERO, r.HP)  // T2 = fin
-    code.addi(r.T2, r.T2, -1)     // Ajustar para último dígito
-
-    code.addLabel(floatReverse)
-    code.bge(r.T1, r.T2, floatEnd)
-    code.lb(r.T3, (r.T1))      // Cargar dígito del inicio
-    code.lb(r.T4, (r.T2))      // Cargar dígito del final
-    code.sb(r.T4, (r.T1))      // Guardar dígito del final al inicio
-    code.sb(r.T3, (r.T2))      // Guardar dígito del inicio al final
-    code.addi(r.T1, r.T1, 1)    // Mover inicio hacia adelante
-    code.addi(r.T2, r.T2, -1)   // Mover final hacia atrás
-    code.j(floatReverse)
-
-    code.addLabel(floatEnd)
-    code.j(endFunction)
-
-    // Fin de la función
-    code.addLabel(endFunction)
-    code.comment('Agregando el caracter nulo al final')
-    code.sb(r.ZERO, r.HP)
-    code.addi(r.HP, r.HP, 1)
+    // Finalizar string
+    code.addLabel(endFunction);
+    code.sb(r.ZERO, r.HP);  // Carácter nulo al final
+    code.addi(r.HP, r.HP, 1);
 }
 
 export const typeOf = (obj) => {
