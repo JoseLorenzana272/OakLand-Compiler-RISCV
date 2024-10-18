@@ -9,10 +9,10 @@ export const concatString = (code) => {
     // A1 -> dirección en heap de la segunda cadena
     // result -> push en el stack la dirección en heap de la cadena concatenada
 
-    code.comment('Guardando en el stack la dirección en heap de la cadena concatenada')
+    code.comment('Saving the heap pointer in the stack (the address of the resulting string)') 
     code.push(r.HP);
 
-    code.comment('Copiando la 1er cadena en el heap')
+    code.comment('Copying the 1st string to the heap')
     const end1 = code.getLabel()
     const loop1 = code.addLabel()
 
@@ -24,7 +24,7 @@ export const concatString = (code) => {
     code.j(loop1)
     code.addLabel(end1)
 
-    code.comment('Copiando la 2da cadena en el heap')
+    code.comment('Copying the 2nd string to the heap')
     const end2 = code.getLabel()
     const loop2 = code.addLabel()
 
@@ -36,7 +36,7 @@ export const concatString = (code) => {
     code.j(loop2)
     code.addLabel(end2)
 
-    code.comment('Agregando el caracter nulo al final')
+    code.comment('Adding the null character at the end')
     code.sb(r.ZERO, r.HP)
     code.addi(r.HP, r.HP, 1)
 }
@@ -46,7 +46,7 @@ export const concatString = (code) => {
 export const toString = (code) => {
     // A0 -> valor a convertir
     // A1 -> tipo del valor (asumiendo que tienes un sistema de tipos)
-    code.comment('Guardando en el stack la dirección en heap del resultado')
+    code.comment('Saving in the stack the heap address of the result');
     code.push(r.HP);
 
     const endFunction = code.getLabel()
@@ -157,14 +157,14 @@ export const toString = (code) => {
 
     // Fin de la función
     code.addLabel(endFunction)
-    code.comment('Agregando el caracter nulo al final')
+    code.comment('Adding the null character at the end')
     code.sb(r.ZERO, r.HP)
     code.addi(r.HP, r.HP, 1)
 }
 
 export const floatToString = (code) => {
     // A0 -> valor a convertir en f.FT0
-    code.comment('Guardando en el stack la dirección en heap del resultado');
+    code.comment('Saving in the stack the heap address of the result');
     code.push(r.HP);
 
     const intFloatLoop = code.getLabel();
@@ -277,9 +277,9 @@ export const typeOf = (obj) => {
 export const toLowerCase = (code) => {
     // A0 -> dirección en heap de la primera cadena
     // result -> push en el stack la dirección en heap de la cadena convertida a minúsculas
-    code.comment('Guardando en el stack la dirección en heap de la cadena convertida a minúsculas')
+    code.comment('Saving in the stack the heap address of the resulting string (converted to lowercase)')
     code.push(r.HP);
-    code.comment('Copiando la cadena en el heap')
+    code.comment('Copying the string to the heap')
 
     const end = code.getLabel()
     const loop = code.getLabel()
@@ -323,16 +323,16 @@ export const toLowerCase = (code) => {
     code.sb(r.ZERO, r.HP)
     code.addi(r.HP, r.HP, 1)
 
-    code.comment('Fin de la cadena')
+    code.comment('End of the string')
     
 }
 
 export const toUpperCase = (code) => {
     // A0 -> dirección en heap de la primera cadena
     // result -> push en el stack la dirección en heap de la cadena convertida a mayúsculas
-    code.comment('Guardando en el stack la dirección en heap de la cadena convertida a mayúsculas')
+    code.comment('Saving in the stack the heap address of the resulting string (converted to uppercase)')
     code.push(r.HP);
-    code.comment('Copiando la cadena en el heap')
+    code.comment('Copying the string to the heap')
 
     const end = code.getLabel()
     const loop = code.getLabel()
@@ -376,17 +376,17 @@ export const toUpperCase = (code) => {
     code.sb(r.ZERO, r.HP)
     code.addi(r.HP, r.HP, 1)
 
-    code.comment('Fin de la cadena')
+    code.comment('End of the string')
 }
 
 export const parseIntString = (code) => {
     // A0 -> dirección en heap de la cadena a convertir
     // result -> push en el stack el valor entero resultante
 
-    code.comment('Inicializando el resultado en 0')
+    code.comment('Initializing the result to 0')
     code.li(r.T0, 0)
 
-    code.comment('Verificando si el primer carácter es un signo negativo')
+    code.comment('Verifying if the first character is a negative sign')
     code.lb(r.T1, r.A0)
     code.li(r.T2, 45)  // ASCII del signo '-'
     const notNegative = code.getLabel()
@@ -399,27 +399,27 @@ export const parseIntString = (code) => {
     const isNegative = code.getLabel()
     const pushResult = code.getLabel()
 
-    code.comment('Iterando sobre cada carácter de la cadena')
+    code.comment('Iterating over each character of the string')
     code.addLabel(parseLoop)
     code.lb(r.T1, r.A0)
     code.beqz(r.T1, endParse)  // Si llegamos al final de la cadena (carácter nulo), terminamos
 
 
-    code.comment('Convirtiendo el carácter ASCII a su valor numérico')
+    code.comment('Converting the ASCII character to its numeric value')
     code.addi(r.T1, r.T1, -48)  // ASCII '0' = 48
 
-    code.comment('Verificando si el carácter es un dígito válido (0-9)')
+    code.comment('Verifying if the character is a valid digit (0-9)')
     code.li(r.T2, 0)
     code.blt(r.T1, r.T2, endParse)  // Si es menor que 0, terminamos
     code.li(r.T2, 9)
     code.bgt(r.T1, r.T2, endParse)  // Si es mayor que 9, terminamos
 
-    code.comment('Multiplicando el resultado acumulado por 10 y sumando el nuevo dígito')
+    code.comment('Multiplying the accumulated result by 10 and adding the new digit')
     code.li(r.T3, 10)
     code.mul(r.T0, r.T0, r.T3)
     code.add(r.T0, r.T0, r.T1)
 
-    code.comment('Avanzando al siguiente carácter')
+    code.comment('Advancing to the next character')
     code.addi(r.A0, r.A0, 1)
     code.j(parseLoop)
 
@@ -427,20 +427,20 @@ export const parseIntString = (code) => {
 
     code.addLabel(endParse)
 
-    code.comment('Verificando si el número es negativo')
+    code.comment('Verifying if the number is negative')
     code.lb(r.T1, r.A0)
     code.li(r.T2, 45)  // ASCII del signo '-'
     code.bne(r.T1, r.T2, pushResult)
     
     code.addLabel(isNegative)
-    code.comment('Si es negativo, negamos el resultado antes de guardarlo')
+    code.comment('If it is negative, negate the result')
     code.neg(r.T0, r.T0)
 
     code.addLabel(pushResult)
-    code.comment('Guardando el resultado en el stack')
+    code.comment('Saving the result in the stack')
     code.push(r.T0)
 
-    code.comment('Retornando de la función')
+    code.comment('Returning from the function')
     code.jr(r.RA)
 }
 
@@ -448,7 +448,7 @@ export const parseIntFloat = (code) => {
     // A0 -> contiene el valor flotante a convertir
     // result -> push en el stack el valor entero resultante
 
-    code.comment('Convertir float a int')
+    code.comment('Convert the float to an integer')
     
     // Mover el valor flotante de A0 a FT0
     code.fmvs(f.FT0, f.FA0)
@@ -456,10 +456,10 @@ export const parseIntFloat = (code) => {
     // Truncar el float a int
     code.fcvtws(r.T0, f.FT0)
     
-    code.comment('Guardando el resultado en el stack')
+    code.comment('Saving the result in the stack')
     code.push(r.T0)
 
-    code.comment('Retornando de la función')
+    code.comment('Returning from the function')
     code.jr(r.RA)
 }
 
@@ -467,12 +467,12 @@ export const parseFloat = (code) => {
     // A0 -> dirección en heap de la cadena a convertir
     // result -> push en el stack el valor flotante resultante
 
-    code.comment('Inicializando el resultado en 0')
+    code.comment('Initializing the result to 0')
     code.li(r.T0, 0)  // Parte entera
     code.li(r.T1, 0)  // Parte decimal
     code.li(r.T2, 1)  // Divisor para la parte decimal
 
-    code.comment('Verificando si el primer carácter es un signo negativo')
+    code.comment('Verifying if the first character is a negative sign')
     code.lb(r.T3, r.A0)
     code.li(r.T4, 45)  // ASCII del signo '-'
     const notNegative = code.getLabel()
@@ -486,34 +486,34 @@ export const parseFloat = (code) => {
     const isNegative = code.getLabel()
     const pushResult = code.getLabel()
 
-    code.comment('Iterando sobre cada carácter de la cadena')
+    code.comment('Iterating over each character of the string')
     code.addLabel(parseLoop)
     code.lb(r.T3, r.A0)
     code.beqz(r.T3, endParse)  // Si llegamos al final de la cadena, terminamos
 
-    code.comment('Verificando si es un punto decimal')
+    code.comment('Verifying if the character is a dot')
     code.li(r.T4, 46)  // ASCII del punto '.'
     code.beq(r.T3, r.T4, parseDecimal)
 
-    code.comment('Convirtiendo el carácter ASCII a su valor numérico')
+    code.comment('Converting the ASCII character to its numeric value')
     code.addi(r.T3, r.T3, -48)  // ASCII '0' = 48
 
-    code.comment('Verificando si el carácter es un dígito válido (0-9)')
+    code.comment('Verifying if the character is a valid digit (0-9)')
     code.li(r.T4, 0)
     code.blt(r.T3, r.T4, endParse)  // Si es menor que 0, terminamos
     code.li(r.T4, 9)
     code.bgt(r.T3, r.T4, endParse)  // Si es mayor que 9, terminamos
 
-    code.comment('Multiplicando el resultado acumulado por 10 y sumando el nuevo dígito')
+    code.comment('Multiplying the accumulated result by 10 and adding the new digit')
     code.li(r.T4, 10)
     code.mul(r.T0, r.T0, r.T4)
     code.add(r.T0, r.T0, r.T3)
 
-    code.comment('Avanzando al siguiente carácter')
+    code.comment('Advancing to the next character')
     code.addi(r.A0, r.A0, 1)
     code.j(parseLoop)
 
-    code.comment('Procesando la parte decimal')
+    code.comment('Parsing the decimal part')
     code.addLabel(parseDecimal)
     code.addi(r.A0, r.A0, 1)  // Avanzamos después del punto decimal
     code.li(r.T2, 1)  // Inicializamos el divisor en 1
@@ -523,59 +523,59 @@ export const parseFloat = (code) => {
     code.lb(r.T3, r.A0)
     code.beqz(r.T3, endParse)  // Si llegamos al final de la cadena, terminamos
 
-    code.comment('Convirtiendo el carácter ASCII a su valor numérico')
+    code.comment('Converting the ASCII character to its numeric value')
     code.addi(r.T3, r.T3, -48)  // ASCII '0' = 48
 
-    code.comment('Verificando si el carácter es un dígito válido (0-9)')
+    code.comment('Verifying if the character is a valid digit (0-9)')
     code.li(r.T4, 0)
     code.blt(r.T3, r.T4, endParse)  // Si es menor que 0, terminamos
     code.li(r.T4, 9)
     code.bgt(r.T3, r.T4, endParse)  // Si es mayor que 9, terminamos
 
-    code.comment('Agregando el dígito a la parte decimal')
+    code.comment('Multiplying the accumulated result by 10 and adding the new digit')
     code.mul(r.T1, r.T1, r.T2)  // Multiplicamos la parte decimal actual por 10
     code.add(r.T1, r.T1, r.T3)  // Sumamos el nuevo dígito
     code.li(r.T4, 10)
     code.mul(r.T2, r.T2, r.T4)  // Actualizamos el divisor (multiplicamos por 10)
 
-    code.comment('Avanzando al siguiente carácter')
+    code.comment('Advancing to the next character')
     code.addi(r.A0, r.A0, 1)
     code.j(parseDecimalLoop)
 
     code.addLabel(endParse)
 
-    code.comment('Combinando parte entera y decimal')
+    code.comment('Calculating the float value and joining the integer and decimal parts')
     code.fcvtsw(f.FT0, r.T0)  // Convertimos la parte entera a float
     code.fcvtsw(f.FT1, r.T1)  // Convertimos la parte decimal a float
     code.fcvtsw(f.FT2, r.T2)  // Convertimos el divisor a float
     code.fdiv(f.FT1, f.FT1, f.FT2)  // Dividimos la parte decimal por el divisor
     code.fadd(f.FT0, f.FT0, f.FT1)  // Sumamos la parte entera y decimal
 
-    code.comment('Verificando si el número es negativo')
+    code.comment('Verifying if the number is negative')
     code.lb(r.T3, r.A0)
     code.li(r.T4, 45)  // ASCII del signo '-'
     code.bne(r.T3, r.T4, pushResult)
     
     code.addLabel(isNegative)
-    code.comment('Si es negativo, negamos el resultado')
+    code.comment('If it is negative, negate the result')
     code.fneg(f.FT0, f.FT0)
 
     code.addLabel(pushResult)
-    code.comment('Guardando el resultado en el stack')
+    code.comment('Saving the result in the stack')
     code.pushFloat(f.FT0)
 
-    code.comment('Retornando de la función')
+    code.comment('Returning from the function')
     code.jr(r.RA)
 }
 
 export const parseFloatInt = (code) => {
-    code.comment('Convirtiendo el entero a float')
+    code.comment('Converting the integer to a float')
     code.fcvtsw(f.FT0, r.A0)
 
-    code.comment('Guardando el resultado en el stack')
+    code.comment('Saving the result in the stack')
     code.pushFloat(f.FT0)
 
-    code.comment('Retornando de la función')
+    code.comment('Returning from the function')
     code.jr(r.RA)
 }
 
@@ -589,7 +589,7 @@ export const stringEqualString = (code) => {
     const notEqual = code.getLabel()
     const end = code.getLabel()
 
-    code.comment('Comparando las cadenas')
+    code.comment('Comparing the strings')
     code.addLabel(loop)
     code.lb(r.T1, r.A0)
     code.lb(r.T2, r.A1)
@@ -622,7 +622,7 @@ export const stringNotEqualString = (code) => {
     const notEqual = code.getLabel()
     const end = code.getLabel()
 
-    code.comment('Comparando las cadenas')
+    code.comment('Comparing the strings')
     code.addLabel(loop)
     code.lb(r.T1, r.A0)
     code.lb(r.T2, r.A1)
@@ -654,7 +654,7 @@ export const zeroDivision = (code) => {
     // Guardar el denominador en T0
     code.pop(r.T0);
     
-    code.comment('Verificar si el denominador es 0');
+    code.comment('Verifying if the denominator is 0');
     const notZero = code.getLabel();
     const errorZero = code.getLabel();
     
@@ -664,7 +664,7 @@ export const zeroDivision = (code) => {
     
     // Manejo del error de división por cero
     code.addLabel(errorZero);
-    code.comment('Error: División por cero');
+    code.comment('Error: Division by zero');
     // Aquí podrías imprimir un mensaje de error o manejar el error como prefieras
     code.li(r.A0, 4);  // Código de error para división por cero
     code.li(r.A7, 93); // Syscall para terminar el programa con error

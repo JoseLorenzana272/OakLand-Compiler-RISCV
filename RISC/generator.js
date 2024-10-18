@@ -611,7 +611,7 @@ export class Generador {
     }
 
     toString() {
-        this.comment('Fin del programa')
+        this.comment('End of program')
         this.endProgram()
         this.comment('Builtins')
 
@@ -629,7 +629,7 @@ export class Generador {
         heap:
 .text
 
-# inicializando el heap pointer
+# initializing stack pointer
     la ${r.HP}, heap
 
 main:

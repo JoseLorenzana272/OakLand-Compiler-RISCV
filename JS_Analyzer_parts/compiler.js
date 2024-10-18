@@ -26,16 +26,16 @@ export class CompilerVisitor extends BaseVisitor {
      * @type {BaseVisitor['visitPrimitivo']}
      */
     visitLiteral(node) {
-        this.code.comment(`Primitivo: ${node.value}`);
+        this.code.comment(`Primitive value: ${node.value}`);
         this.code.pushContant(node);
-        this.code.comment(`Fin Primitivo: ${node.value}`);
+        this.code.comment(`End of Primitive Value: ${node.value}`);
     }
 
     /**
      * @type {BaseVisitor['visitOperacionBinaria']}
      */
     visitArithmetic(node) {
-        this.code.comment(`Operacion: ${node.op}`);
+        this.code.comment(`Operation: ${node.op}`);
         node.izq.accept(this); // izq |
         node.der.accept(this); // izq | der
 
@@ -106,7 +106,7 @@ export class CompilerVisitor extends BaseVisitor {
      * @type {BaseVisitor['visitRelational']}
      */
     visitRelational(node) {
-        this.code.comment(`Operacion Relacional: ${node.op}`);
+        this.code.comment(`Relational Operation: ${node.op}`);
         node.izq.accept(this); // izq |
         node.der.accept(this); // izq | der
     
@@ -162,7 +162,7 @@ export class CompilerVisitor extends BaseVisitor {
      */
 
     visitIgualation(node) {
-        this.code.comment(`Operacion Igualacion: ${node.op}`);
+        this.code.comment(`Igualation Operation: ${node.op}`);
         node.izq.accept(this); // izq |
         node.der.accept(this); // izq | der
 
@@ -227,7 +227,7 @@ export class CompilerVisitor extends BaseVisitor {
      * @type {BaseVisitor['visitLogical']}
      */
     visitLogical(node) {
-        this.code.comment(`Operacion Logica: ${node.op}`);
+        this.code.comment(`Logical Operation: ${node.op}`);
         node.izq.accept(this); // izq |
         node.der.accept(this); // izq | der
 
@@ -360,7 +360,7 @@ export class CompilerVisitor extends BaseVisitor {
      * @type {BaseVisitor['visitDeclaracionVariable']}
      */
     visitVariableDeclaration(node) {
-        this.code.comment(`Declaracion Variable: ${node.id}`);
+        this.code.comment(`Variable Declaration: ${node.id}`);
         
         if (node.value) {
             // Si hay un valor para la variable, aceptarlo
@@ -372,7 +372,7 @@ export class CompilerVisitor extends BaseVisitor {
         }
 
         this.code.tagObject(node.id);
-        this.code.comment(`Fin declaracion Variable: ${node.id}`);
+        this.code.comment(`End of Variable Declaration: ${node.id}`);
     }
 
 
@@ -380,7 +380,7 @@ export class CompilerVisitor extends BaseVisitor {
  * @type {BaseVisitor['visitAsignacion']}
  */
 visitVariableAssign(node) {
-    this.code.comment(`Asignacion Variable: ${node.id}`);
+    this.code.comment(`Variable Assignation: ${node.id}`);
 
     node.assi.accept(this);
     const isFloat = this.code.getTopObject().type === 'float';
@@ -404,7 +404,7 @@ visitVariableAssign(node) {
     
     this.code.pushObject(variableObject);
 
-    this.code.comment(`Fin Asignacion Variable: ${node.id}`);
+    this.code.comment(`End of Variable Assignation: ${node.id}`);
 }
 
 
@@ -413,7 +413,7 @@ visitVariableAssign(node) {
      * @type {BaseVisitor['visitReferenciaVariable']}
      */
     visitVariableValue(node) {
-        this.code.comment(`Referencia a variable ${node.id}: ${JSON.stringify(this.code.objectStack)}`);
+        this.code.comment(`Variable Reference ${node.id}: ${JSON.stringify(this.code.objectStack)}`);
 
 
         const [offset, variableObject] = this.code.getObject(node.id);
@@ -430,7 +430,7 @@ visitVariableAssign(node) {
         this.code.pushObject({ ...variableObject, id: undefined });
 
         // this.code.comment(`Fin Referencia Variable: ${node.id}`);
-        this.code.comment(`Fin referencia de variable ${node.id}: ${JSON.stringify(this.code.objectStack)}`);
+        this.code.comment(`End of Variable Reference ${node.id}: ${JSON.stringify(this.code.objectStack)}`);
     }
 
 
@@ -438,20 +438,20 @@ visitVariableAssign(node) {
      * @type {BaseVisitor['visitBloque']}
      */
     visitBlock(node) {
-        this.code.comment('Inicio de bloque');
+        this.code.comment('Start of Block');
 
         this.code.newScope();
 
         node.statements.forEach(d => d.accept(this));
 
-        this.code.comment('Reduciendo la pila');
+        this.code.comment('Reducing the stack');
         const bytesToRemove = this.code.endScope();
 
         if (bytesToRemove > 0) {
             this.code.addi(r.SP, r.SP, bytesToRemove);
         }
 
-        this.code.comment('Fin de bloque');
+        this.code.comment('End of Block');
 
     }
 
@@ -459,12 +459,12 @@ visitVariableAssign(node) {
      * @type {BaseVisitor['visitIfNode']}
      */
     visitIfNode(node) {
-        this.code.comment('Inicio de If');
+        this.code.comment('Start of If Statement');
 
-        this.code.comment('Condicion');
+        this.code.comment('Condition');
         node.cond.accept(this);
         this.code.popObject(r.T0);
-        this.code.comment('Fin de condicion');
+        this.code.comment('End of Condition');
         /*
         // no else
         if (!cond) goto endIf
@@ -487,22 +487,22 @@ visitVariableAssign(node) {
             const elseLabel = this.code.getLabel();
             const endIfLabel = this.code.getLabel();
             this.code.beq(r.T0, r.ZERO, elseLabel);
-            this.code.comment('Rama verdadera');
+            this.code.comment('True branch');
             node.stmtTrue.accept(this);
             this.code.j(endIfLabel);
             this.code.addLabel(elseLabel);
-            this.code.comment('Rama falsa');
+            this.code.comment('False branch');
             node.stmtFalse.accept(this);
             this.code.addLabel(endIfLabel);
         } else {
             const endIfLabel = this.code.getLabel();
             this.code.beq(r.T0, r.ZERO, endIfLabel);
-            this.code.comment('Rama verdadera');
+            this.code.comment('True branch');
             node.stmtTrue.accept(this);
             this.code.addLabel(endIfLabel);
         }
 
-        this.code.comment('Fin del If');
+        this.code.comment('End of If Statement');
 
     }
 
@@ -510,7 +510,7 @@ visitVariableAssign(node) {
      * @type {BaseVisitor['visitWhileNode']}
      */
     visitWhileNode(node) {
-        this.code.comment('Inicio de While');
+        this.code.comment('Start of While Loop');
 
         const startWhile = this.code.getLabel();
         this.continue_labels.push(startWhile);
@@ -519,20 +519,20 @@ visitVariableAssign(node) {
 
         this.code.addLabel(startWhile);
 
-        this.code.comment('Condicion');
+        this.code.comment('Condition');
         node.cond.accept(this);
         this.code.popObject(r.T0);
-        this.code.comment('Fin de condicion');
+        this.code.comment('End of Condition');
 
         this.code.beq(r.T0, r.ZERO, endWhile);
 
-        this.code.comment('Cuerpo del While');
+        this.code.comment('While Body');
         node.stmt.accept(this);
         this.code.j(startWhile);
 
         this.code.addLabel(endWhile);
 
-        this.code.comment('Fin del While');
+        this.code.comment('End of While Loop');
 
     }
 
@@ -540,7 +540,7 @@ visitVariableAssign(node) {
      * @type [BaseVisitor['visitIncrementDecrement']]
      */
     visitIncrementDecrement(node) {
-        this.code.comment(`Incremento/Decremento: ${node.op}`);
+        this.code.comment(`Increment/Decrement: ${node.op}`);
 
         const [offset, object] = this.code.getObject(node.id);
         this.code.addi(r.T0, r.SP, offset);
@@ -557,14 +557,14 @@ visitVariableAssign(node) {
         this.code.push(r.T1);
         this.code.pushObject({ ...object, type: 'int' });
 
-        this.code.comment(`Fin Incremento/Decremento: ${node.op}`);
+        this.code.comment(`End of Increment/Decrement: ${node.op}`);
     }
 
     /**
      * @type {BaseVisitor['visitForLoop']}
      */
     visitForLoop(node) {
-        this.code.comment('Inicio de For');
+        this.code.comment('Start of For Loop');
 
         this.code.newScope();
 
@@ -594,7 +594,7 @@ visitVariableAssign(node) {
 
         this.code.endScope();
 
-        this.code.comment('Fin de For');
+        this.code.comment('End of For Loop');
     }
 
     /**
@@ -604,7 +604,7 @@ visitVariableAssign(node) {
         this.code.comment('Break');
         const label = this.break_labels[this.break_labels.length - 1];
         this.code.j(label);
-        this.code.comment('Fin Break');
+        this.code.comment('End Break');
     }
 
     /**
@@ -614,14 +614,14 @@ visitVariableAssign(node) {
         this.code.comment('Continue');
         const label = this.continue_labels[this.continue_labels.length - 1];
         this.code.j(label);
-        this.code.comment('Fin Continue');
+        this.code.comment('End Continue');
     }
 
     /**
      * @type {BaseVisitor['visitSwitchNode']}
      */
     visitSwitchNode(node) {
-        this.code.comment('Inicio de Switch');
+        this.code.comment('Start of Switch');
 
         // Evaluar la expresión del switch
         node.exp.accept(this);
@@ -642,7 +642,7 @@ visitVariableAssign(node) {
 
         // Comparar la expresión del switch con cada caso
         for (const {value, label} of caseLabels) {
-            this.code.comment(`Comparación caso ${value}`);
+            this.code.comment(`Case Comparison ${value}`);
             // Aqui es mejor cargar el valor de manera inmediata
             this.code.li(r.T1, value);
             this.code.beq(r.T0, r.T1, label);
@@ -660,7 +660,7 @@ visitVariableAssign(node) {
         for (let i = 0; i < node.cases.length; i++) {
             const caseNode = node.cases[i];
             this.code.addLabel(caseLabels[i].label);
-            this.code.comment(`Ejecutando caso ${caseLabels[i].value}`);
+            this.code.comment(`Executing Case: ${caseLabels[i].value}`);
             caseNode.inst.forEach(stmt => stmt.accept(this));
             // Cae en el siguiente caso si no hay break dentro de cada case
         }
@@ -668,13 +668,13 @@ visitVariableAssign(node) {
         // Default case
         if (hasDefault) {
             this.code.addLabel(defaultLabel);
-            this.code.comment('Caso por defecto');
+            this.code.comment('Default case');
             node.def.stmts.forEach(stmt => stmt.accept(this));
         }
 
         this.code.addLabel(endSwitchLabel);
         this.break_labels.pop();
-        this.code.comment('Fin del Switch');
+        this.code.comment('End of Switch');
     }
 
     /**
@@ -682,11 +682,11 @@ visitVariableAssign(node) {
      */
     visitCallNode(node) {
         if (node.callee.id === 'typeof') {
-            this.code.comment(`Llamada a función: ${node.id}`);
+            this.code.comment(`Function Call: ${node.id}`);
             this.code.callBuiltin(node.callee.id, this, node.args);
-            this.code.comment('Fin de llamada a función');
+            this.code.comment('End of Function Call');
         } else if (node.callee.id === 'toLowerCase') {
-            this.code.comment(`Llamada a función: ${node.callee.id}`);
+            this.code.comment(`Function Call: ${node.callee.id}`);
             
             node.args[0].accept(this);
             console.log(node.args[0]);
@@ -702,9 +702,9 @@ visitVariableAssign(node) {
             
             this.code.pushObject({ type: 'string', length: 4 });
             
-            this.code.comment('Fin de llamada a función');
+            this.code.comment('End of Function Call');
         } else if (node.callee.id === 'toUpperCase') {
-            this.code.comment(`Llamada a función: ${node.callee.id}`);
+            this.code.comment(`Function Call: ${node.callee.id}`);
             
             node.args[0].accept(this);
             console.log(node.args[0]);
@@ -720,9 +720,9 @@ visitVariableAssign(node) {
             
             this.code.pushObject({ type: 'string', length: 4 });
             
-            this.code.comment('Fin de llamada a función');
+            this.code.comment('End of Function Call');
         } else if (node.callee.id === 'toString'){
-            this.code.comment(`Llamada a función: ${node.callee.id}`);
+            this.code.comment(`Function Call: ${node.callee.id}`);
         
             node.args[0].accept(this);
             const isFloat = this.code.getTopObject().type === 'float';
@@ -747,10 +747,10 @@ visitVariableAssign(node) {
             
             this.code.pushObject({ type: 'string', length: 4 });
             
-            this.code.comment('Fin de llamada a función');
+            this.code.comment('End of Function Call');
         }else if (node.callee.id === 'parseInt') {
 
-            this.code.comment(`Llamada a función: ${node.callee.id}`);
+            this.code.comment(`Function Call: ${node.callee.id}`);
         
             node.args[0].accept(this);
             const isFloat = this.code.getTopObject().type === 'float';
@@ -769,11 +769,11 @@ visitVariableAssign(node) {
                 throw new Error('TypeError: parseInt() requires a string, float, or int argument');
             }
             
-            this.code.comment('Fin de llamada a función');
+            this.code.comment('End of Function Call');
 
         }else if (node.callee.id === 'parsefloat') {
 
-            this.code.comment(`Llamada a función: ${node.callee.id}`);
+            this.code.comment(`Function Call: ${node.callee.id}`);
         
             node.args[0].accept(this);
             const isFloat = this.code.getTopObject().type === 'float';
@@ -793,7 +793,7 @@ visitVariableAssign(node) {
                 throw new Error('TypeError: parseFloat() requires a string, float, or int argument');
             }
             
-            this.code.comment('Fin de llamada a función');
+            this.code.comment('End of Function Call');
         }
     }
 
@@ -803,7 +803,7 @@ visitVariableAssign(node) {
      */
     visitVectorDeclaration(node) {
         if (Array.isArray(node.values)) {
-            this.code.comment(`Declaracion Vector: ${node.id}`);
+            this.code.comment(`Vector Declaration: ${node.id}`);
             this.code.setArray(node.id, node.size);
             this.code.la(r.T5, node.id);
             this.code.push(r.T5);
@@ -823,7 +823,7 @@ visitVariableAssign(node) {
         } else if (node.size){
             const size = node.size;
             console.log("SIZE",size.value);
-            this.code.comment(`Declaracion Vector: ${node.id}`);
+            this.code.comment(`Vector Declaration: ${node.id}`);
             this.code.setArray(node.id, size.value);
             this.code.la(r.T5, node.id);
             this.code.push(r.T5);
@@ -848,8 +848,9 @@ visitVariableAssign(node) {
 
 
             this.code.setArray(node.id, sourceObject.length);
-            this.code.la(r.T5, node.id);        // T5 = dirección del vector destino
             this.code.la(r.T1, sourceVectorId);  // T1 = dirección del vector fuente
+            this.code.la(r.T5, node.id);        // T5 = dirección del vector destino
+            
 
             this.code.li(r.T2, sourceObject.length); // T2 = tamaño del vector fuente
                 
@@ -857,7 +858,7 @@ visitVariableAssign(node) {
             this.code.addi(r.T5, r.T5, 4);  // T5 = dirección primer elemento destino
             
             // Copiar elementos
-            this.code.comment(`Copiando elementos del vector ${sourceVectorId}`);
+            this.code.comment(`Copying elements from vector: ${sourceVectorId}`);
             const loopLabel = this.code.getLabel();
             const endLabel = this.code.getLabel();
             
@@ -889,14 +890,14 @@ visitVariableAssign(node) {
             console.log("OBJECT LENGTH",objectLength);
             this.code.pushObject({type: 'array-'+node.type, length: objectLength, depth: this.code.depth});
             this.code.tagObject(node.id);
-            this.code.comment(`Fin declaracion Vector: ${node.id}`);
+            this.code.comment(`End of Vector Declaration: ${node.id}`);
     }
 
     /**
      * @type {BaseVisitor['visitArrayAccess']}
      */
     visitArrayAccess(node) {
-        this.code.comment(`Acceso a vector: ${node.id}`);
+        this.code.comment(`Access to Vector: ${node.id}`);
         node.index.accept(this);
         const isFloat = this.code.getTopObject().type === 'float';
         this.code.popObject(isFloat ? f.FT1 : r.T1);
@@ -913,7 +914,7 @@ visitVariableAssign(node) {
             this.code.pushFloat(f.FT1);
         }
         this.code.pushObject({type: object.type.replace('array-', ''), length: object.length});
-        this.code.comment(`Fin acceso a vector: ${node.id}`);
+        this.code.comment(`End of Access to Vector: ${node.id}`);
     }
 
     /**
@@ -967,7 +968,7 @@ visitVariableAssign(node) {
 
         this.code.addLabel(endIndexOf);
         this.code.pushObject({type: 'int', length: 4});
-        this.code.comment(`Fin IndexOf: ${node.id}`);
+        this.code.comment(`End of IndexOf: ${node.id}`);
         
     }
 
@@ -982,7 +983,7 @@ visitVariableAssign(node) {
         this.code.li(r.T1, object.length);
         this.code.push(r.T1);
         this.code.pushObject({type: 'int', length: 4});
-        this.code.comment(`Fin Length: ${node.id}`);
+        this.code.comment(`End of Length: ${node.id}`);
     }
 
     /**
@@ -1015,7 +1016,7 @@ visitVariableAssign(node) {
 
         this.code.addLabel(joinEnd);
         this.code.pushObject({type: 'string', length: 4});
-        this.code.comment(`Fin Join: ${node.id}`);
+        this.code.comment(`End of Join: ${node.id}`);
         //TODO: Implementar el join con un separador, igual aun no sirve
 
     }
@@ -1024,7 +1025,7 @@ visitVariableAssign(node) {
      * @type {BaseVisitor['visitVectorAssign']}
      */
     visitVectorAssign(node) {
-        this.code.comment(`Asignacion Vector: ${node.id}`);
+        this.code.comment(`Vector Assignation: ${node.id}`);
         const [offset, object] = this.code.getObject(node.id);
         this.code.la(r.T5, node.id);
         this.code.li(r.T2, 4); // Cargar el tamaño de un elemento del array
@@ -1042,7 +1043,7 @@ visitVariableAssign(node) {
             this.code.sw(r.T0, r.T5); // Guardar el valor en la posición del array
         }
         this.code.pushObject({type: object.type.replace('array-', ''), length: object.length});
-        this.code.comment(`Fin Asignacion Vector: ${node.id}`);
+        this.code.comment(`End of Vector Assignation: ${node.id}`);
     }
 
 
