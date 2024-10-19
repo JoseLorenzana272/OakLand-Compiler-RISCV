@@ -30,10 +30,10 @@ export function ArithmeticOp(op, izq, der){
             resultado = leftValue * rightValue;
             break;
         case '/':
-            if (rightValue === 0) {
+            /*if (rightValue === 0) {
                 console.warn('División por cero, resultado será null');
                 return new Literal({ value: null, type: 'null' });
-            }
+            }*/
             resultado = leftValue / rightValue;
             break;
         case '%':

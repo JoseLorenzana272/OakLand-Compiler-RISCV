@@ -220,10 +220,10 @@ export class InterpreterVisitor extends BaseVisitor {
         //verificar tipos
         switch (variableType) {
             case 'int':
-                if (typeof variableValue.value !== 'number' || !Number.isInteger(variableValue.value)) {
+                /*if (typeof variableValue.value !== 'number' || !Number.isInteger(variableValue.value)) {
                     this.entornoActual.setVariable('null', variableName, new Literal({ value: null, type: 'null' }));
-                    throw new Errors(`An ${variableType} was expected, but received:  ${typeof variableValue.value}`, node.location);
-                }
+                    //throw new Errors(`An ${variableType} was expected, but received:  ${typeof variableValue.value}`, node.location);
+                }*/
                 break;
 
             case 'float':

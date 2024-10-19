@@ -269,6 +269,8 @@ export const typeOf = (obj) => {
         obj.compiler.code.pushContant({ type: 'string', value: 'bool' });
     } else if (valor.type === 'string') {
         obj.compiler.code.pushContant({ type: 'string', value: 'string' });
+    } else if (valor.type === 'join') {
+        obj.compiler.code.pushContant({ type: 'string', value: 'string' });
     }
     obj.compiler.code.pushObject({ type: 'string', length: 4 });
     return
@@ -647,38 +649,36 @@ export const stringNotEqualString = (code) => {
 
 export const zeroDivision = (code) => {
     code.comment('=== Zero Division Check ===');
-    
-    // Etiqueta de inicio del multitin
+
     code.addLabel('_zeroDivision');
-    
-    // Guardar el denominador en T0
-    code.pop(r.T0);
-    
+
+    // Guardar el valor del denominador en el stack
+    code.pop(r.T2);
+
     code.comment('Verifying if the denominator is 0');
     const notZero = code.getLabel();
     const errorZero = code.getLabel();
-    
-    // Verificar si T0 es 0
-    code.beqz(r.T0, errorZero);
-    code.j(notZero);
-    
-    // Manejo del error de división por cero
+
+    // Verificar si T2 (el denominador) es 0
+    code.beqz(r.T2, errorZero);  // Si T2 es 0, saltar a errorZero
+    code.j(notZero);             // Si no es 0, continuar normalmente
+
     code.addLabel(errorZero);
     code.comment('Error: Division by zero');
-    // Aquí podrías imprimir un mensaje de error o manejar el error como prefieras
-    code.li(r.A0, 4);  // Código de error para división por cero
-    code.li(r.A7, 93); // Syscall para terminar el programa con error
-    code.ecall()
-    
-    // Continuar si no hay error
+    code.la(r.A0, 'zero_division_error');
+    code.li(r.A7, 4);
+    code.ecall();
+    code.li(r.A7, 93);
+    code.ecall();
+
     code.addLabel(notZero);
-    code.push(r.T0);
-    
-    // Retornar del multitin
+    code.push(r.T2);
+
+    // Retornar de la función
     code.jr(r.RA);
-    
-    code.comment('=== Fin Zero Division Check ===');
-}
+
+    code.comment('=== End of Zero Division Check ===');
+};
 
 export const builtins = {
     concatString: concatString,

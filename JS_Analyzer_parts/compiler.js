@@ -91,6 +91,11 @@ export class CompilerVisitor extends BaseVisitor {
                 this.code.push(r.T0);
                 break;
             case '/':
+                this.code.push(r.T1);
+                this.code.push(r.T0);
+                this.code.callBuiltin('zeroDivision');
+                this.code.pop(r.T0);
+                this.code.pop(r.T1);
                 this.code.div(r.T0, r.T1, r.T0);
                 this.code.push(r.T0);
                 break;
@@ -338,7 +343,9 @@ export class CompilerVisitor extends BaseVisitor {
             'string': () => this.code.printString(),
             'bool': () => this.code.printBool(),
             'char': () => this.code.printChar(),
-            'float': () => this.code.printFloat()
+            'float': () => this.code.printFloat(),
+            //tipo join no debe hacer nada
+            'join': () => {}
         }
 
         for (let i = 0; i < node.exp.length; i++) {
@@ -346,6 +353,12 @@ export class CompilerVisitor extends BaseVisitor {
             // hacer pop de la pila
             const isFloat = this.code.getTopObject().type === 'float';
             const object = this.code.popObject(isFloat ? f.FA0 : r.A0);
+            console.log("AHHHHHHHHHHHHHHHHHH" + object.type);
+            if (!tipoPrint[object.type]) {
+                console.error(`Error: Tipo no soportado - ${object.type}`);
+                return;
+            }
+            
             tipoPrint[object.type]();
 
             
@@ -842,53 +855,38 @@ visitVariableAssign(node) {
 
         //Caso en el que se hace la copia de un vector ya existente
         }else{
-            const sourceVectorId = node.values;
-            const [sourceOffset, sourceObject] = this.code.getObject(sourceVectorId);
-            console.log("SOURCE",sourceObject);
+            this.code.comment(`Vector Declaration: ${node.id}`);
+            const isFloat = node.type === 'float';
+            const [offset, variableObject] = this.code.getObject(node.values);
+            this.code.setArray(node.id, variableObject.length);
+            this.code.la(r.T5, node.id); //Se carga la dirección base del nuevo vector
+            this.code.push(r.T5);
+            this.code.la(r.T3, node.values);
+            this.code.push(r.T3);
+            this.code.li(r.T4, variableObject.length); //Se carga la longitud del vector a copiar
+            this.code.push(r.T4);
+            const startCopy = this.code.getLabel();
+            const endCopy = this.code.getLabel();
+            this.code.addLabel(startCopy);
+            if(isFloat){
+                this.code.flw(f.FT0, r.T3);
+                this.code.fsw(f.FT0, r.T5);
+            }else{
+                this.code.lw(r.T0, r.T3);
+                this.code.sw(r.T0, r.T5);
 
-
-            this.code.setArray(node.id, sourceObject.length);
-            this.code.la(r.T1, sourceVectorId);  // T1 = dirección del vector fuente
-            this.code.la(r.T5, node.id);        // T5 = dirección del vector destino
-            
-
-            this.code.li(r.T2, sourceObject.length); // T2 = tamaño del vector fuente
-                
-            this.code.addi(r.T1, r.T1, 4);  // T1 = dirección primer elemento fuente
-            this.code.addi(r.T5, r.T5, 4);  // T5 = dirección primer elemento destino
-            
-            // Copiar elementos
-            this.code.comment(`Copying elements from vector: ${sourceVectorId}`);
-            const loopLabel = this.code.getLabel();
-            const endLabel = this.code.getLabel();
-            
-            this.code.li(r.T3, 0);  // T3 = contador
-            
-            this.code.addLabel(loopLabel);
-            this.code.bge(r.T3, r.T2, endLabel);  // Si contador >= tamaño, terminar
-            
-            // Copiar elemento
-            if (node.type === 'float') {
-                this.code.flw(f.FT1, r.T1);  // Cargar valor float del vector fuente
-                this.code.fsw(f.FT1, r.T5);  // Guardar valor float en vector destino
-            } else {
-                this.code.lw(r.T4, r.T1);    // Cargar valor int del vector fuente
-                this.code.sw(r.T4, r.T5);    // Guardar valor int en vector destino
             }
-            
-            // Incrementar punteros y contador
-            this.code.addi(r.T1, r.T1, 4);   // Avanzar puntero fuente
-            this.code.addi(r.T5, r.T5, 4);   // Avanzar puntero destino
-            this.code.addi(r.T3, r.T3, 1);   // Incrementar contador
-            this.code.j(loopLabel);           // Volver al inicio del bucle
-            
-            // Fin del bucle
-            this.code.addLabel(endLabel);
-            }
+            this.code.addi(r.T5, r.T5, 4);
+            this.code.addi(r.T3, r.T3, 4);
+            this.code.addi(r.T4, r.T4, -1);
+            this.code.bnez(r.T4, startCopy);
+            this.code.addLabel(endCopy);
+            this.code.comment(`End of Vector Declaration: ${node.id}`);
+        }
 
             const objectLength = Array.isArray(node.values) ? node.values.length : node.size ? node.size.value : this.code.getObject(node.values)[1].length;
             console.log("OBJECT LENGTH",objectLength);
-            this.code.pushObject({type: 'array-'+node.type, length: objectLength, depth: this.code.depth});
+            this.code.pushObject({type: node.type, length: objectLength, depth: this.code.depth});
             this.code.tagObject(node.id);
             this.code.comment(`End of Vector Declaration: ${node.id}`);
     }
@@ -913,7 +911,7 @@ visitVariableAssign(node) {
             this.code.flw(f.FT1, r.T5);
             this.code.pushFloat(f.FT1);
         }
-        this.code.pushObject({type: object.type.replace('array-', ''), length: object.length});
+        this.code.pushObject({type: object.type, length: object.length});
         this.code.comment(`End of Access to Vector: ${node.id}`);
     }
 
@@ -942,15 +940,11 @@ visitVariableAssign(node) {
 
         if (!isFloat){
             this.code.lw(r.T2, r.T5); // Cargar el valor en la posición actual
-        }else{
-            this.code.flw(f.FT2, r.T5); // Cargar el valor en la posición actual
-        }
-
-        if (!isFloat){
             this.code.beq(r.T1, r.T2, foundIndexOf); // Si valor == buscado, encontrado
         }else{
+            this.code.flw(f.FT2, r.T5); // Cargar el valor en la posición actual
             this.code.feq(f.FT3, f.FT1, f.FT2); // Si valor == buscado, encontrado
-            this.code.bnez(f.FT3, foundIndexOf);         
+            this.code.bnez(f.FT3, foundIndexOf); 
         }
 
         this.code.addi(r.T5, r.T5, 4); // Avanzar al siguiente elemento del array
@@ -992,33 +986,80 @@ visitVariableAssign(node) {
     visitJoin(node) {
         this.code.comment(`Join: ${node.id}`);
         const [offset, object] = this.code.getObject(node.id);
+        console.log(object);
         const isFloat = object.type === 'float';
-        // arr1 = [1, 2, 3] => "123" (por el momento, sin separador)
-
-        this.code.la(r.T5, node.id);
-        this.code.li(r.T1, object.length); 
-        this.code.li(r.T2, 0); // i = 0
-
-        const joinLoop = this.code.getLabel();
-        const joinEnd = this.code.getLabel();
-
-        this.code.addLabel(joinLoop);
-        this.code.beq(r.T2, r.T1, joinEnd); // Si i == longitud, terminar
-        this.code.lw(r.T3, r.T5); // Cargar el valor en la posición actual
-        this.code.addi(r.T5, r.T5, 4); // Avanzar al siguiente elemento del array
-
-
-        this.code.push(r.T3);
-        this.code.callBuiltin('toString');
+    
+        this.code.la(r.T5, node.id); // Cargar dirección de inicio del array
+        this.code.li(r.T0, 0); // Inicializar índice
+    
+        const startJoin = this.code.getLabel();
+        const endJoin = this.code.getLabel();
+        const skipComma = this.code.getLabel();
+    
+    
+        this.code.li(r.T1, object.length); // Cargar longitud del array
         
-        this.code.addi(r.T2, r.T2, 1); // Incrementar i
-        this.code.j(joinLoop);
+        this.code.addLabel(startJoin);
+        this.code.beq(r.T0, r.T1, endJoin); // Si el índice es igual a la longitud, terminar
 
-        this.code.addLabel(joinEnd);
-        this.code.pushObject({type: 'string', length: 4});
+        if (!isFloat) {
+            this.code.lw(r.T2, r.T5); // Cargar entero
+        } else {
+            this.code.flw(f.FT0, r.T5); // Cargar flotante
+        }
+    
+        // Convertir a cadena
+        this.code.mv(r.T3, r.HP); // Guardar inicio de la cadena en T3
+        this.code.li(r.T4, 10); // Divisor para obtener dígitos
+    
+        const digitLoop = this.code.getLabel();
+        this.code.addLabel(digitLoop);
+        this.code.rem(r.S0, r.T2, r.T4); // Obtener el último dígito
+        this.code.div(r.T2, r.T2, r.T4); // Reducir el número
+        this.code.addi(r.S0, r.S0, 48); // Convertir a carácter ASCII
+        this.code.sb(r.S0, r.HP); // Guardar el dígito en el heap
+        this.code.addi(r.HP, r.HP, 1); // Incrementar el puntero del heap
+        this.code.bnez(r.T2, digitLoop); // Si quedan dígitos, repetir
+    
+        // Revertir la cadena
+        this.code.addi(r.HP, r.HP, -1); // Ajustar HP al último carácter
+        const reverseLoop = this.code.getLabel();
+        const reverseEnd = this.code.getLabel();
+        this.code.addLabel(reverseLoop);
+        this.code.bge(r.T3, r.HP, reverseEnd);
+        this.code.lb(r.S0, r.T3);
+        this.code.lb(r.S1, r.HP);
+        this.code.sb(r.S1, r.T3);
+        this.code.sb(r.S0, r.HP);
+        this.code.addi(r.T3, r.T3, 1);
+        this.code.addi(r.HP, r.HP, -1);
+        this.code.j(reverseLoop);
+        this.code.addLabel(reverseEnd);
+        this.code.addi(r.HP, r.HP, 1); // Ajustar HP al siguiente espacio libre
+    
+        // Imprimir el número
+        this.code.mv(r.A0, r.T3);
+        this.code.li(r.A7, 4);
+        this.code.ecall();
+    
+        // Imprimir coma si no es el último número
+        this.code.addi(r.S0, r.T1, -1);
+        this.code.bge(r.T0, r.S0, skipComma);
+        this.code.li(r.A0, 44); // Código ASCII para la coma
+        this.code.li(r.A7, 11); // Syscall para imprimir un carácter
+        this.code.ecall();
+        this.code.li(r.A0, 32); // Código ASCII para el espacio
+        this.code.ecall();
+        this.code.addLabel(skipComma);
+    
+        this.code.addi(r.T5, r.T5, 4); // Avanzar al siguiente valor en el array
+        this.code.addi(r.T0, r.T0, 1); // Incrementar el índice
+        this.code.j(startJoin);
+    
+        this.code.addLabel(endJoin);
+        
+        this.code.pushObject({type: 'join', length: 4});
         this.code.comment(`End of Join: ${node.id}`);
-        //TODO: Implementar el join con un separador, igual aun no sirve
-
     }
 
     /**
@@ -1042,12 +1083,65 @@ visitVariableAssign(node) {
         }else{
             this.code.sw(r.T0, r.T5); // Guardar el valor en la posición del array
         }
-        this.code.pushObject({type: object.type.replace('array-', ''), length: object.length});
+        this.code.pushObject({type: object.type, length: object.length});
         this.code.comment(`End of Vector Assignation: ${node.id}`);
     }
 
+    /**
+     * @type {BaseVisitor['visitForEach']}
+     */
+    visitForEach(node) {
+        this.code.comment('Start of ForEach Loop');
+        const startForEach = this.code.getLabel();
+        const endForEach = this.code.getLabel();
+        
+        // Get reference to the array
+        const [offset, object] = this.code.getObject(node.id2);
+        const length = object.length;
+        
+        // Load array base address
+        this.code.la(r.T5, node.id2);
+        // Load array length
+        this.code.li(r.T2, length);
+        // Initialize index
+        this.code.li(r.T3, 0);
+        
+        this.code.newScope();
+        this.code.tagObject(node.id);
+        
+        this.code.addLabel(startForEach);
+        
+        // Check if index reached array length
+        this.code.beq(r.T3, r.T2, endForEach);
+        
+        // Calculate element offset and load value
+        this.code.li(r.T4, 4);                  // Size of int
+        this.code.mul(r.T1, r.T3, r.T4);       // index * 4
+        this.code.add(r.T4, r.T5, r.T1);       // Calculate address in T4
+        this.code.lw(r.T1, r.T4);              // Load element value
+        
+        // Store element in loop variable
+        const [offset2, object2] = this.code.getObject(node.id);
+        this.code.addi(r.SP, r.SP, offset2);
+        this.code.sw(r.T1, r.SP);
+        
+        // Execute loop body
+        node.stmt.accept(this);
+        
+        // Reset stack pointer after loop body
+        this.code.addi(r.SP, r.SP, -offset2);
+        
+        // Increment index and continue
+        this.code.addi(r.T3, r.T3, 1);
+        this.code.j(startForEach);
+        
+        this.code.addLabel(endForEach);
+        this.code.endScope();
+        this.code.comment('End of ForEach Loop');
+    }
 
 }
+
 /*
 visitPrint(node) {
         this.code.comment('Print');

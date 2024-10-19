@@ -30,6 +30,8 @@ export const registers = {
     T3: 't3',
     T4: 't4',
     T5: 't5',
+    S0: 's0',
+    S1: 's1',
     // T6: 't6',
 
     // pseudo-registers

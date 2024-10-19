@@ -626,6 +626,7 @@ export class Generador {
         ${Array.from(this._Array.entries()).map(([key, value]) => `${key}: .space ${value * 4}`).join('\n')}
         true_str:    .string "true"
         false_str:   .string "false"
+        zero_division_error: .string "Error: Division by zero"
         heap:
 .text
 
