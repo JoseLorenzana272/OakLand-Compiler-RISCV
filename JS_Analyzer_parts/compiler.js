@@ -2,6 +2,8 @@ import { registers as r, floatRegisters as f } from "../RISC/constants.js"
 import { Generador } from "../RISC/generator.js";
 import nodos from "./nodos.js";
 import { BaseVisitor } from "./visitor.js";
+import { FrameVisitor } from "./frame.js";
+import { builtins } from "../RISC/builtins.js";
 
 
 export class CompilerVisitor extends BaseVisitor {
@@ -11,6 +13,13 @@ export class CompilerVisitor extends BaseVisitor {
         this.code = new Generador();
         this.break_labels = [];
         this.continue_labels = [];
+
+        this.metadataFunction = {}
+        this.insideFunction = false;
+        this.frameDclIndex = 0;
+        this.returnLabel = null;
+
+        this.outSideFunction = true;
     }
 
     /**
@@ -18,6 +27,7 @@ export class CompilerVisitor extends BaseVisitor {
      */
     visitOpSentence(node) {
         node.o.accept(this);
+        console.log(node);
         const isFloat = this.code.getTopObject().type === 'float';
         this.code.popObject(isFloat ? f.FT0 : r.T0);
     }
@@ -384,41 +394,63 @@ export class CompilerVisitor extends BaseVisitor {
             
         }
 
+        //Checkin if it belongs to a function environment
+        if (this.insideFunction) {
+            const localObject = this.code.getFrameLocal(this.frameDclIndex);
+            const valueObj = this.code.popObject(r.T0);
+
+            this.code.addi(r.T1, r.FP, -localObject.offset * 4);
+            this.code.sw(r.T0, r.T1);
+
+            // ! inferir el tipo
+            localObject.type = valueObj.type;
+            this.frameDclIndex++;
+
+            return
+        }
+
         this.code.tagObject(node.id);
         this.code.comment(`End of Variable Declaration: ${node.id}`);
     }
 
 
     /**
- * @type {BaseVisitor['visitAsignacion']}
- */
-visitVariableAssign(node) {
-    this.code.comment(`Variable Assignation: ${node.id}`);
+     * @type {BaseVisitor['visitAsignacion']}
+     */
+    visitVariableAssign(node) {
+        this.code.comment(`Variable Assignation: ${node.id}`);
 
-    node.assi.accept(this);
-    const isFloat = this.code.getTopObject().type === 'float';
-    const valueObject = this.code.popObject(isFloat ? f.FT0 : r.T0);
-    const [offset, variableObject] = this.code.getObject(node.id);
+        node.assi.accept(this);
+        const isFloat = this.code.getTopObject().type === 'float';
+        const valueObject = this.code.popObject(isFloat ? f.FT0 : r.T0);
+        const [offset, variableObject] = this.code.getObject(node.id);
 
-    this.code.addi(r.T1, r.SP, offset);  // Calcula la dirección de la variable en la pila
-
-
-    if (variableObject.type == 'float') {
-        if (valueObject.type !== 'float') {
-            this.code.fcvtsw(f.FT0, r.T0);
+        // Check if an assignation belongs to a variable in a function
+        if (this.insideFunction) {
+            this.code.addi(r.T1, r.FP, -variableObject.offset * 4);
+            this.code.sw(r.T0, r.T1);
+            return
         }
-        this.code.fsw(f.FT0, r.T1);
-        this.code.pushFloat(f.FT0);
-    } else {
-        this.code.sw(r.T0, r.T1);
-        this.code.push(r.T0);
+
+        this.code.addi(r.T1, r.SP, offset);  // Calcula la dirección de la variable en la pila
+
+
+        if (variableObject.type == 'float') {
+            if (valueObject.type !== 'float') {
+                this.code.fcvtsw(f.FT0, r.T0);
+            }
+            this.code.fsw(f.FT0, r.T1);
+            this.code.pushFloat(f.FT0);
+        } else {
+            this.code.sw(r.T0, r.T1);
+            this.code.push(r.T0);
+        }
+
+        
+        this.code.pushObject(variableObject);
+
+        this.code.comment(`End of Variable Assignation: ${node.id}`);
     }
-
-    
-    this.code.pushObject(variableObject);
-
-    this.code.comment(`End of Variable Assignation: ${node.id}`);
-}
 
 
 
@@ -430,6 +462,15 @@ visitVariableAssign(node) {
 
 
         const [offset, variableObject] = this.code.getObject(node.id);
+
+        if (this.insideFunction) {
+            this.code.addi(r.T1, r.FP, -variableObject.offset * 4);
+            this.code.lw(r.T0, r.T1);
+            this.code.push(r.T0);
+            this.code.pushObject({ ...variableObject, id: undefined });
+            return
+        }
+
         const isFloat = variableObject.type === 'float';
 
         this.code.addi(r.T0, r.SP, offset);
@@ -631,6 +672,27 @@ visitVariableAssign(node) {
     }
 
     /**
+     * 
+     * @type {BaseVisitor['visitReturnNode']}
+     */
+    visitReturnNode(node) {
+        this.code.comment('Inicio Return');
+
+        if (node.exp) {
+            node.exp.accept(this);
+            this.code.popObject(r.A0);
+
+            const frameSize = this.metadataFunction[this.insideFunction].frameSize
+            const returnOffest = frameSize - 1;
+            this.code.addi(r.T0, r.FP, -returnOffest * 4)
+            this.code.sw(r.A0, r.T0)
+        }
+
+        this.code.j(this.returnLabel);
+        this.code.comment('Final Return');
+    }
+
+    /**
      * @type {BaseVisitor['visitSwitchNode']}
      */
     visitSwitchNode(node) {
@@ -694,120 +756,177 @@ visitVariableAssign(node) {
      * @type {BaseVisitor['visitCallNode']}
      */
     visitCallNode(node) {
-        if (node.callee.id === 'typeof') {
-            this.code.comment(`Function Call: ${node.id}`);
-            this.code.callBuiltin(node.callee.id, this, node.args);
-            this.code.comment('End of Function Call');
-        } else if (node.callee.id === 'toLowerCase') {
-            this.code.comment(`Function Call: ${node.callee.id}`);
-            
-            node.args[0].accept(this);
-            console.log(node.args[0]);
-            
-            const strObj = this.code.popObject(r.A0);
-            console.log(strObj);
-            
-            if (strObj.type !== 'string') {
-                throw new Error('TypeError: toLowerCase() requires a string argument');
-            }
+        console.log("GOKUU: ", node);
+            if (node.callee.id === 'typeof') {
+                this.code.comment(`Function Call: ${node.id}`);
+                this.code.callBuiltin(node.callee.id, this, node.args);
+                this.code.comment('End of Function Call');
+            } else if (node.callee.id === 'toLowerCase') {
+                this.code.comment(`Function Call: ${node.callee.id}`);
+                
+                node.args[0].accept(this);
+                console.log(node.args[0]);
+                
+                const strObj = this.code.popObject(r.A0);
+                console.log(strObj);
+                
+                if (strObj.type !== 'string') {
+                    throw new Error('TypeError: toLowerCase() requires a string argument');
+                }
 
-            this.code.callBuiltin('toLowerCase');
-            
-            this.code.pushObject({ type: 'string', length: 4 });
-            
-            this.code.comment('End of Function Call');
-        } else if (node.callee.id === 'toUpperCase') {
-            this.code.comment(`Function Call: ${node.callee.id}`);
-            
-            node.args[0].accept(this);
-            console.log(node.args[0]);
-            
-            const strObj = this.code.popObject(r.A0);
-            console.log(strObj);
-            
-            if (strObj.type !== 'string') {
-                throw new Error('TypeError: toUpperCase() requires a string argument');
-            }
-
-            this.code.callBuiltin('toUpperCase');
-            
-            this.code.pushObject({ type: 'string', length: 4 });
-            
-            this.code.comment('End of Function Call');
-        } else if (node.callee.id === 'toString'){
-            this.code.comment(`Function Call: ${node.callee.id}`);
-        
-            node.args[0].accept(this);
-            const isFloat = this.code.getTopObject().type === 'float';
-            const valor = this.code.popObject(isFloat ? f.FA0 : r.A0);
-            
-            if (valor.type === 'int') {
-                this.code.li(r.A1, 1);
-            } else if (valor.type === 'bool') {
-                this.code.li(r.A1, 2);
-            } else if (valor.type === 'char') {
-                this.code.li(r.A1, 3);
-            } else if (valor.type === 'string') {
-                this.code.li(r.A1, 4);
-            } else if (valor.type === 'float') {
-                this.code.li(r.A1, 5);
-                this.code.callBuiltin('floatToString');
+                this.code.callBuiltin('toLowerCase');
+                
                 this.code.pushObject({ type: 'string', length: 4 });
-                return;
+                
+                this.code.comment('End of Function Call');
+            } else if (node.callee.id === 'toUpperCase') {
+                this.code.comment(`Function Call: ${node.callee.id}`);
+                
+                node.args[0].accept(this);
+                console.log(node.args[0]);
+                
+                const strObj = this.code.popObject(r.A0);
+                console.log(strObj);
+                
+                if (strObj.type !== 'string') {
+                    throw new Error('TypeError: toUpperCase() requires a string argument');
+                }
+
+                this.code.callBuiltin('toUpperCase');
+                
+                this.code.pushObject({ type: 'string', length: 4 });
+                
+                this.code.comment('End of Function Call');
+            } else if (node.callee.id === 'toString'){
+                this.code.comment(`Function Call: ${node.callee.id}`);
+            
+                node.args[0].accept(this);
+                const isFloat = this.code.getTopObject().type === 'float';
+                const valor = this.code.popObject(isFloat ? f.FA0 : r.A0);
+                
+                if (valor.type === 'int') {
+                    this.code.li(r.A1, 1);
+                } else if (valor.type === 'bool') {
+                    this.code.li(r.A1, 2);
+                } else if (valor.type === 'char') {
+                    this.code.li(r.A1, 3);
+                } else if (valor.type === 'string') {
+                    this.code.li(r.A1, 4);
+                } else if (valor.type === 'float') {
+                    this.code.li(r.A1, 5);
+                    this.code.callBuiltin('floatToString');
+                    this.code.pushObject({ type: 'string', length: 4 });
+                    return;
+                }
+                
+                this.code.callBuiltin('toString');
+                
+                this.code.pushObject({ type: 'string', length: 4 });
+                
+                this.code.comment('End of Function Call');
+            }else if (node.callee.id === 'parseInt') {
+
+                this.code.comment(`Function Call: ${node.callee.id}`);
+            
+                node.args[0].accept(this);
+                const isFloat = this.code.getTopObject().type === 'float';
+                const valor = this.code.popObject(isFloat ? f.FA0 : r.A0);
+
+                if (valor.type === 'string' || valor.type === 'int') {
+
+                    this.code.callBuiltin('parseIntString');
+
+                    this.code.pushObject({ type: 'int', length: 4 });
+                }else if(valor.type === 'float'){
+                    this.code.callBuiltin('parseIntFloat');
+
+                    this.code.pushObject({ type: 'int', length: 4 });
+                }else {
+                    throw new Error('TypeError: parseInt() requires a string, float, or int argument');
+                }
+                
+                this.code.comment('End of Function Call');
+
+            }else if (node.callee.id === 'parsefloat') {
+
+                this.code.comment(`Function Call: ${node.callee.id}`);
+            
+                node.args[0].accept(this);
+                const isFloat = this.code.getTopObject().type === 'float';
+                const valor = this.code.popObject(isFloat ? f.FA0 : r.A0);
+
+                if (valor.type === 'string') {
+
+                    this.code.callBuiltin('parseFloat');
+
+                    this.code.pushObject({ type: 'float', length: 4 });
+                }else if(valor.type === 'int'){
+                    this.code.callBuiltin('parseFloatInt');
+
+                    this.code.pushObject({ type: 'float', length: 4 });
+                }
+                else {
+                    throw new Error('TypeError: parseFloat() requires a string, float, or int argument');
+                }
+                
+                this.code.comment('End of Function Call');
+            }else{
+                const nombreFuncion = node.callee.id;
+
+            this.code.comment(`Llamada a funcion ${nombreFuncion}`);
+
+            const etiquetaRetornoLlamada = this.code.getLabel();
+
+            // 1. Guardar los argumentos
+            node.args.forEach((arg, index) => {
+                arg.accept(this)
+                this.code.popObject(r.T0)
+                this.code.addi(r.T1, r.SP, -4 * (3 + index)) // ! REVISAR
+                this.code.sw(r.T0, r.T1)
+            });
+
+            // Calcular la dirección del nuevo FP en T1
+            this.code.addi(r.T1, r.SP, -4)
+
+            // Guardar direccion de retorno
+            this.code.la(r.T0, etiquetaRetornoLlamada)
+            this.code.push(r.T0)
+
+            // Guardar el FP
+            this.code.push(r.FP)
+            this.code.addi(r.FP, r.T1, 0)
+
+            // colocar el SP al final del frame
+            // this.code.addi(r.SP, r.SP, -(this.functionMetada[nombreFuncion].frameSize - 4))
+            this.code.addi(r.SP, r.SP, -(node.args.length * 4)) // ! REVISAR
+
+
+            // Saltar a la función
+            this.code.j(nombreFuncion)
+            this.code.addLabel(etiquetaRetornoLlamada)
+
+            // Recuperar el valor de retorno
+            const frameSize = this.metadataFunction[nombreFuncion].frameSize
+            const returnSize = frameSize - 1;
+            this.code.addi(r.T0, r.FP, -returnSize * 4)
+            this.code.lw(r.A0, r.T0)
+
+            // Regresar el FP al contexto de ejecución anterior
+            this.code.addi(r.T0, r.FP, -4)
+            this.code.lw(r.FP, r.T0)
+
+            // Regresar mi SP al contexto de ejecución anterior
+            this.code.addi(r.SP, r.SP, (frameSize - 1) * 4)
+
+
+            this.code.push(r.A0)
+            console.log("JOSEEEE: ", this.metadataFunction[nombreFuncion].returnType);
+            this.code.pushObject({ type: this.metadataFunction[nombreFuncion].returnType, length: 4 })
+
+            this.code.comment(`Fin de llamada a funcion ${nombreFuncion}`);
             }
-            
-            this.code.callBuiltin('toString');
-            
-            this.code.pushObject({ type: 'string', length: 4 });
-            
-            this.code.comment('End of Function Call');
-        }else if (node.callee.id === 'parseInt') {
 
-            this.code.comment(`Function Call: ${node.callee.id}`);
-        
-            node.args[0].accept(this);
-            const isFloat = this.code.getTopObject().type === 'float';
-            const valor = this.code.popObject(isFloat ? f.FA0 : r.A0);
 
-            if (valor.type === 'string' || valor.type === 'int') {
-
-                this.code.callBuiltin('parseIntString');
-
-                this.code.pushObject({ type: 'int', length: 4 });
-            }else if(valor.type === 'float'){
-                this.code.callBuiltin('parseIntFloat');
-
-                this.code.pushObject({ type: 'int', length: 4 });
-            }else {
-                throw new Error('TypeError: parseInt() requires a string, float, or int argument');
-            }
-            
-            this.code.comment('End of Function Call');
-
-        }else if (node.callee.id === 'parsefloat') {
-
-            this.code.comment(`Function Call: ${node.callee.id}`);
-        
-            node.args[0].accept(this);
-            const isFloat = this.code.getTopObject().type === 'float';
-            const valor = this.code.popObject(isFloat ? f.FA0 : r.A0);
-
-            if (valor.type === 'string') {
-
-                this.code.callBuiltin('parseFloat');
-
-                this.code.pushObject({ type: 'float', length: 4 });
-            }else if(valor.type === 'int'){
-                this.code.callBuiltin('parseFloatInt');
-
-                this.code.pushObject({ type: 'float', length: 4 });
-            }
-            else {
-                throw new Error('TypeError: parseFloat() requires a string, float, or int argument');
-            }
-            
-            this.code.comment('End of Function Call');
-        }
     }
 
     
@@ -1138,6 +1257,82 @@ visitVariableAssign(node) {
         this.code.addLabel(endForEach);
         this.code.endScope();
         this.code.comment('End of ForEach Loop');
+    }
+
+    /**
+     * 
+     * @type {BaseVisitor['visitFuncDeclaration']}
+     */
+
+    visitFuncDeclaration(node) {
+        const baseSize = 2; // | ra | fp |
+
+        const paramSize = node.params.length; // | ra | fp | p1 | p2 | ... | pn |
+
+        const frameVisitor = new FrameVisitor(baseSize + paramSize);
+        node.block.accept(frameVisitor);
+        const localFrame = frameVisitor.frame;
+        const localSize = localFrame.length; // | ra | fp | p1 | p2 | ... | pn | l1 | l2 | ... | ln |
+
+        const returnSize = 1; // | ra | fp | p1 | p2 | ... | pn | l1 | l2 | ... | ln | rv |
+
+        const totalSize = baseSize + paramSize + localSize + returnSize;
+        this.metadataFunction[node.id] = {
+            frameSize: totalSize,
+            returnType: node.type,
+        }
+
+        const instruccionesDeMain = this.code.instrucciones;
+        const instruccionesDeDeclaracionDeFuncion = []
+        this.code.instrucciones = instruccionesDeDeclaracionDeFuncion;
+
+        node.params.forEach((param, index) => {
+            this.code.pushObject({
+                id: param.id,
+                type: param.type,
+                length: 4,
+                offset: baseSize + index
+            })
+        });
+
+        localFrame.forEach(variableLocal => {
+            this.code.pushObject({
+                ...variableLocal,
+                length: 4,
+                type: 'local',
+            })
+        });
+
+        this.outSideFunction = this.insideFunction;
+        this.insideFunction = node.id;
+        this.frameDclIndex = 0;
+        this.returnLabel = this.code.getLabel();
+
+        this.code.comment(`Declaracion de funcion ${node.id}`);
+        this.code.addLabel(node.id);
+
+        node.block.accept(this);
+
+        this.code.addLabel(this.returnLabel);
+
+        this.code.add(r.T0, r.ZERO, r.FP);
+        this.code.lw(r.RA, r.T0);
+        this.code.jalr(r.ZERO, r.RA, 0);
+        this.code.comment(`Fin de declaracion de funcion ${node.id}`);
+
+        // Limpiar metadatos
+        for (let i = 0; i < paramSize + localSize; i++) {
+            this.code.objectStack.pop(); // ! aqui no retrocedemos el SP, hay que hacerlo más adelanto
+        }
+
+        this.code.instrucciones = instruccionesDeMain
+
+        instruccionesDeDeclaracionDeFuncion.forEach(instruccion => {
+            this.code.instructionsForFunctions.push(instruccion);
+            console.log("Instrucción: ", instruccion);
+        });
+
+        this.insideFunction = this.outSideFunction;
     }
 
 }

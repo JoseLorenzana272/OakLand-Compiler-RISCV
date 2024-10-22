@@ -30,7 +30,7 @@ export class Generador {
         this._usedBuiltins = new Set()
         this._labelCounter = 0;
         this._Array = new Map();
-        
+        this.instructionsForFunctions = []
     }
 
     setArray(id, length){
@@ -304,6 +304,10 @@ export class Generador {
         this.instrucciones.push(new Instruction('j', label))
     }
 
+    jalr(rd, rs1, imm) {
+        this.instrucciones.push(new Instruction('jalr', rd, rs1, imm))
+    }
+
     ret() {
         this.instrucciones.push(new Instruction('ret'))
     }
@@ -472,6 +476,11 @@ export class Generador {
         this.instrucciones.push(new Instruction(`# ${text}`))
     }
 
+    getFrameLocal(index) {
+        const frameRelativeLocal = this.objectStack.filter(obj => obj.type === 'local');
+        return frameRelativeLocal[index];
+    }
+
     pushContant(object) {
         let length = 0;
 
@@ -615,6 +624,7 @@ export class Generador {
         this.endProgram()
         this.comment('Builtins')
 
+        this.instructionsForFunctions.forEach(instruction => this.instrucciones.push(instruction))
         Array.from(this._usedBuiltins).forEach(builtinName => {
             this.addLabel(builtinName)
             builtins[builtinName](this)
